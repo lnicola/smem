@@ -1,0 +1,4 @@
+# smem-rs
+
+This is a Rust implementation of [smem](https://www.selenic.com/smem/). It's
+meant to be fully compatible with the original.
