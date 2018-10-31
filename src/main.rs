@@ -1,11 +1,13 @@
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::ffi::{OsStr, OsString};
+use std::ffi::{CStr, OsStr, OsString};
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 use std::os::unix::ffi::OsStrExt;
 
 struct ProcessStatistics {
     pid: u16,
+    uid: u16,
+    username: String,
     cmdline: OsString,
     rss: usize,
     pss: usize,
@@ -35,6 +37,23 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
     } else {
         return Ok(None);
     };
+
+    let mut uid = 0;
+    let reader = BufReader::new(File::open(&path.join("status"))?);
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("Uid:") {
+            uid = line[4..]
+                .split_whitespace()
+                .next()
+                .unwrap()
+                .parse::<u16>()
+                .unwrap();
+        }
+    }
+    let username = unsafe { CStr::from_ptr((*libc::getpwuid(uid as u32)).pw_name) }
+        .to_string_lossy()
+        .into_owned();
 
     let mut cmdline = fs::read(&path.join("cmdline"))?;
     for c in &mut cmdline {
@@ -76,6 +95,8 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
     let uss = private_clean + private_dirty;
     let statistics = ProcessStatistics {
         pid,
+        uid,
+        username,
         cmdline,
         pss,
         rss,
@@ -96,13 +117,14 @@ fn main() {
         .flatten()
         .collect::<Vec<_>>();
     println!(
-        "{:>10} {:>10} {:>10} {:>10} {}",
-        "PID", "PSS", "RSS", "USS", "Command"
+        "{:>10} {:>10} {:>10} {:>10} {:>10} {}",
+        "User", "PID", "PSS", "RSS", "USS", "Command"
     );
     processes.sort_by_key(|p| p.rss);
     for process in processes {
         println!(
-            "{:10} {:10} {:10} {:10} {}",
+            "{:10} {:10} {:10} {:10} {:10} {}",
+            process.username,
             process.pid,
             process.pss,
             process.rss,
