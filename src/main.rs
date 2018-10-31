@@ -21,6 +21,21 @@ fn parse_size(s: &str) -> usize {
     s.parse().unwrap_or_default()
 }
 
+fn parse_uid(s: &str) -> u16 {
+    assert!(s.starts_with("Uid:"));
+    s[4..]
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .parse::<u16>()
+        .unwrap()
+}
+
+fn get_username(uid: u32) -> String {
+    let pw_name = unsafe { CStr::from_ptr((*libc::getpwuid(uid)).pw_name) };
+    pw_name.to_string_lossy().into_owned()
+}
+
 fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Error> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
@@ -43,17 +58,11 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
     for line in reader.lines() {
         let line = line?;
         if line.starts_with("Uid:") {
-            uid = line[4..]
-                .split_whitespace()
-                .next()
-                .unwrap()
-                .parse::<u16>()
-                .unwrap();
+            uid = parse_uid(&line);
+            break;
         }
     }
-    let username = unsafe { CStr::from_ptr((*libc::getpwuid(uid as u32)).pw_name) }
-        .to_string_lossy()
-        .into_owned();
+    let username = get_username(uid as u32);
 
     let mut cmdline = fs::read(&path.join("cmdline"))?;
     for c in &mut cmdline {
