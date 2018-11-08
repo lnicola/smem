@@ -105,7 +105,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "smem-rs"
+name = "smem"
 version = "0.1.0"
 dependencies = [
  "rayon 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",

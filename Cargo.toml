@@ -1,5 +1,5 @@
 [package]
-name = "smem-rs"
+name = "smem"
 version = "0.1.0"
 authors = ["Laurentiu Nicola <lnicola@dend.ro>"]
 edition = "2018"
