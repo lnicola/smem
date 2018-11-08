@@ -6,6 +6,8 @@ use std::os::unix::ffi::OsStrExt;
 
 struct ProcessStatistics {
     pid: u16,
+    uid: i32,
+    username: String,
     cmdline: OsString,
     rss: usize,
     pss: usize,
@@ -17,6 +19,23 @@ fn parse_size(s: &str) -> usize {
     let pos = s.rfind(' ').unwrap();
     let s = &s[pos + 1..];
     s.parse().unwrap_or_default()
+}
+
+fn parse_uid(s: &str) -> i32 {
+    assert!(s.starts_with("Uid:"));
+    s[4..]
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap_or(-1)
+}
+
+fn get_username(uid: u32) -> String {
+    match users::get_user_by_uid(uid) {
+        Some(user) => user.name().to_string_lossy().into_owned(),
+        None => String::new(),
+    }
 }
 
 fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Error> {
@@ -35,6 +54,17 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
     } else {
         return Ok(None);
     };
+
+    let mut uid = 0;
+    let reader = BufReader::new(File::open(&path.join("status"))?);
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("Uid:") {
+            uid = parse_uid(&line);
+            break;
+        }
+    }
+    let username = get_username(uid as u32);
 
     let mut cmdline = fs::read(&path.join("cmdline"))?;
     for c in &mut cmdline {
@@ -76,6 +106,8 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
     let uss = private_clean + private_dirty;
     let statistics = ProcessStatistics {
         pid,
+        uid,
+        username,
         cmdline,
         pss,
         rss,
@@ -96,13 +128,14 @@ fn main() {
         .flatten()
         .collect::<Vec<_>>();
     println!(
-        "{:>10} {:>10} {:>10} {:>10} {}",
-        "PID", "PSS", "RSS", "USS", "Command"
+        "{:>10} {:>10} {:>10} {:>10} {:>10} {}",
+        "User", "PID", "PSS", "RSS", "USS", "Command"
     );
     processes.sort_by_key(|p| p.rss);
     for process in processes {
         println!(
-            "{:10} {:10} {:10} {:10} {}",
+            "{:10} {:10} {:10} {:10} {:10} {}",
+            process.username,
             process.pid,
             process.pss,
             process.rss,
