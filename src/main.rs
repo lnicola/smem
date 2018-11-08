@@ -1,5 +1,6 @@
 use self::options::Options;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::cmp::Reverse;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
@@ -142,7 +143,11 @@ fn main() {
             "User", "PID", "PSS", "RSS", "USS", "Swap"
         );
     }
-    processes.sort_by_key(|p| p.rss);
+    if options.reverse {
+        processes.sort_by_key(|p| Reverse(p.rss));
+    } else {
+        processes.sort_by_key(|p| p.rss);
+    }
     for process in processes {
         println!(
             "{:10} {:10} {:10} {:10} {:10} {:10} {}",
