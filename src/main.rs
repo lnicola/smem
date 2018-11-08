@@ -149,9 +149,13 @@ fn main() {
         processes.sort_by_key(|p| p.rss);
     }
     for process in processes {
+        if options.numeric {
+            print!("{:10} ", process.uid);
+        } else {
+            print!("{:10} ", process.username);
+        }
         println!(
-            "{:10} {:10} {:10} {:10} {:10} {:10} {}",
-            process.username,
+            "{:10} {:10} {:10} {:10} {:10} {}",
             process.pid,
             process.pss,
             process.rss,
