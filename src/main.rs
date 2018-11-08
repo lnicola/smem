@@ -3,10 +3,8 @@ use humansize::FileSize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use std::cmp::Reverse;
-use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
-use std::os::unix::ffi::OsStrExt;
 use structopt::StructOpt;
 
 use self::options::Options;
@@ -17,7 +15,8 @@ struct ProcessStatistics {
     pid: u16,
     uid: i32,
     username: String,
-    cmdline: OsString,
+    command: String,
+    cmdline: String,
     rss: usize,
     pss: usize,
     uss: usize,
@@ -50,6 +49,7 @@ fn get_username(uid: u32) -> String {
 
 fn get_statistics(
     entry: &DirEntry,
+    process_filter: &Option<Regex>,
     user_filter: &Option<Regex>,
 ) -> Result<Option<ProcessStatistics>, io::Error> {
     let metadata = entry.metadata()?;
@@ -85,15 +85,26 @@ fn get_statistics(
         }
     }
 
+    let mut command = fs::read(&path.join("comm"))?;
+    command.pop();
+    let command = String::from_utf8_lossy(&command).into_owned();
+
     let mut cmdline = fs::read(&path.join("cmdline"))?;
     for c in &mut cmdline {
         if *c == b'\0' {
             *c = b' ';
         }
     }
-    let cmdline = OsStr::from_bytes(&cmdline).to_os_string();
     if cmdline.is_empty() {
         return Ok(None);
+    }
+    cmdline.pop();
+    let cmdline = String::from_utf8_lossy(&cmdline).into_owned();
+
+    if let Some(re) = process_filter.as_ref() {
+        if !re.is_match(&command) && !re.is_match(&cmdline) {
+            return Ok(None);
+        }
     }
 
     let reader = BufReader::new(File::open(&path.join("smaps"))?);
@@ -130,6 +141,7 @@ fn get_statistics(
         pid,
         uid,
         username,
+        command,
         cmdline,
         pss,
         rss,
@@ -141,14 +153,19 @@ fn get_statistics(
 
 fn main() {
     let options = Options::from_args();
+    let process_filter = options
+        .process_filter
+        .as_ref()
+        .map(|r| Regex::new(r).unwrap());
+    let user_filter = options.user_filter.as_ref().map(|r| Regex::new(r).unwrap());
+
     let entries = fs::read_dir(&options.source)
         .unwrap_or_else(|e| panic!("can't read {}: {}", options.source.display(), e))
         .filter_map(|e| e.ok())
         .collect::<Vec<_>>();
-    let user_filter = options.user_filter.map(|r| Regex::new(&r).unwrap());
     let mut processes = entries
         .par_iter()
-        .filter_map(|e| get_statistics(e, &user_filter).ok())
+        .filter_map(|e| get_statistics(e, &process_filter, &user_filter).ok())
         .flatten()
         .collect::<Vec<_>>();
     if !options.no_header {
@@ -184,6 +201,6 @@ fn main() {
             print!("{:10} ", process.uss);
             print!("{:10} ", process.swap);
         }
-        println!("{}", process.cmdline.to_string_lossy().as_ref());
+        println!("{}", process.cmdline);
     }
 }
