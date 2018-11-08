@@ -12,6 +12,7 @@ struct ProcessStatistics {
     rss: usize,
     pss: usize,
     uss: usize,
+    swap: usize,
 }
 
 fn parse_size(s: &str) -> usize {
@@ -83,6 +84,7 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
     let mut rss = 0;
     let mut private_clean = 0;
     let mut private_dirty = 0;
+    let mut swap = 0;
 
     for line in reader.lines() {
         let line = line?;
@@ -96,6 +98,8 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
             field = &mut private_clean;
         } else if line.starts_with("Private_Dirty:") {
             field = &mut private_dirty;
+        } else if line.starts_with("Swap:") {
+            field = &mut swap;
         } else {
             continue;
         }
@@ -112,6 +116,7 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
         pss,
         rss,
         uss,
+        swap,
     };
     Ok(Some(statistics))
 }
@@ -128,18 +133,19 @@ fn main() {
         .flatten()
         .collect::<Vec<_>>();
     println!(
-        "{:>10} {:>10} {:>10} {:>10} {:>10} {}",
-        "User", "PID", "PSS", "RSS", "USS", "Command"
+        "{:>10} {:>10} {:>10} {:>10} {:>10} {:>10} {}",
+        "User", "PID", "PSS", "RSS", "USS", "Swap", "Command"
     );
     processes.sort_by_key(|p| p.rss);
     for process in processes {
         println!(
-            "{:10} {:10} {:10} {:10} {:10} {}",
+            "{:10} {:10} {:10} {:10} {:10} {:10} {}",
             process.username,
             process.pid,
             process.pss,
             process.rss,
             process.uss,
+            process.swap,
             process.cmdline.to_string_lossy().as_ref(),
         );
     }
