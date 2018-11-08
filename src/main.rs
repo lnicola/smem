@@ -128,7 +128,7 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
 fn main() {
     let options = Options::from_args();
     let entries = fs::read_dir(&options.source)
-        .expect(&format!("can't read {}", options.source.display()))
+        .unwrap_or_else(|e| panic!("can't read {}: {}", options.source.display(), e))
         .filter_map(|e| e.ok())
         .collect::<Vec<_>>();
     let mut processes = entries
@@ -137,8 +137,8 @@ fn main() {
         .flatten()
         .collect::<Vec<_>>();
     println!(
-        "{:>10} {:>10} {:>10} {:>10} {:>10} {:>10} {}",
-        "User", "PID", "PSS", "RSS", "USS", "Swap", "Command"
+        "{:>10} {:>10} {:>10} {:>10} {:>10} {:>10} Command",
+        "User", "PID", "PSS", "RSS", "USS", "Swap"
     );
     processes.sort_by_key(|p| p.rss);
     for process in processes {
