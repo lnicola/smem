@@ -5,5 +5,5 @@ authors = ["Laurentiu Nicola <lnicola@dend.ro>"]
 edition = "2018"
 
 [dependencies]
-libc = "0.2.43"
 rayon = "1.0"
+users = "0.8.0"

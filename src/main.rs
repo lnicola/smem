@@ -1,12 +1,12 @@
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::ffi::{CStr, OsStr, OsString};
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 use std::os::unix::ffi::OsStrExt;
 
 struct ProcessStatistics {
     pid: u16,
-    uid: u16,
+    uid: i32,
     username: String,
     cmdline: OsString,
     rss: usize,
@@ -21,19 +21,21 @@ fn parse_size(s: &str) -> usize {
     s.parse().unwrap_or_default()
 }
 
-fn parse_uid(s: &str) -> u16 {
+fn parse_uid(s: &str) -> i32 {
     assert!(s.starts_with("Uid:"));
     s[4..]
         .split_whitespace()
         .next()
         .unwrap()
-        .parse::<u16>()
-        .unwrap()
+        .parse()
+        .unwrap_or(-1)
 }
 
 fn get_username(uid: u32) -> String {
-    let pw_name = unsafe { CStr::from_ptr((*libc::getpwuid(uid)).pw_name) };
-    pw_name.to_string_lossy().into_owned()
+    match users::get_user_by_uid(uid) {
+        Some(user) => user.name().to_string_lossy().into_owned(),
+        None => String::new(),
+    }
 }
 
 fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Error> {
