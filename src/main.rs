@@ -1,8 +1,12 @@
+use self::options::Options;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 use std::os::unix::ffi::OsStrExt;
+use structopt::StructOpt;
+
+mod options;
 
 struct ProcessStatistics {
     pid: u16,
@@ -122,10 +126,10 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
 }
 
 fn main() {
-    let entries = fs::read_dir("/proc")
-        .expect("can't read /proc")
-        .map(|e| e.ok())
-        .filter_map(|e| e)
+    let options = Options::from_args();
+    let entries = fs::read_dir(&options.source)
+        .expect(&format!("can't read {}", options.source.display()))
+        .filter_map(|e| e.ok())
         .collect::<Vec<_>>();
     let mut processes = entries
         .par_iter()
