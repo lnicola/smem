@@ -11,6 +11,8 @@ pub struct Options {
     pub numeric: bool,
     #[structopt(short = "r", long = "reverse", help = "Reverse sort")]
     pub reverse: bool,
+    #[structopt(short = "k", long = "abbreviate", help = "Show human-readable sizes")]
+    pub abbreviate: bool,
     #[structopt(
         short = "S",
         long = "source",

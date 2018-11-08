@@ -1,4 +1,5 @@
-use self::options::Options;
+use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
+use humansize::FileSize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use std::cmp::Reverse;
@@ -7,6 +8,8 @@ use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 use std::os::unix::ffi::OsStrExt;
 use structopt::StructOpt;
+
+use self::options::Options;
 
 mod options;
 
@@ -159,20 +162,28 @@ fn main() {
     } else {
         processes.sort_by_key(|p| p.rss);
     }
+    let file_size_opts = FileSizeOpts {
+        space: false,
+        ..CONVENTIONAL
+    };
     for process in processes {
         if options.numeric {
             print!("{:10} ", process.uid);
         } else {
             print!("{:10} ", process.username);
         }
-        println!(
-            "{:10} {:10} {:10} {:10} {:10} {}",
-            process.pid,
-            process.pss,
-            process.rss,
-            process.uss,
-            process.swap,
-            process.cmdline.to_string_lossy().as_ref(),
-        );
+        print!("{:10} ", process.pid);
+        if options.abbreviate {
+            print!("{:>10} ", process.pss.file_size(&file_size_opts).unwrap());
+            print!("{:>10} ", process.rss.file_size(&file_size_opts).unwrap());
+            print!("{:>10} ", process.uss.file_size(&file_size_opts).unwrap());
+            print!("{:>10} ", process.swap.file_size(&file_size_opts).unwrap());
+        } else {
+            print!("{:10} ", process.pss);
+            print!("{:10} ", process.rss);
+            print!("{:10} ", process.uss);
+            print!("{:10} ", process.swap);
+        }
+        println!("{}", process.cmdline.to_string_lossy().as_ref());
     }
 }
