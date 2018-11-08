@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+#[derive(StructOpt)]
 pub struct Options {
     #[structopt(short = "H", long = "no-header", help = "Disable the header line")]
     pub no_header: bool,
