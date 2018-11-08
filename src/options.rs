@@ -5,6 +5,8 @@ use structopt::StructOpt;
 pub struct Options {
     #[structopt(short = "H", long = "no-header", help = "Disable the header line")]
     pub no_header: bool,
+    #[structopt(short = "U", long = "userfilter", help = "User filter")]
+    pub user_filter: Option<String>,
     #[structopt(short = "n", long = "numeric", help = "Numeric output")]
     pub numeric: bool,
     #[structopt(short = "r", long = "reverse", help = "Reverse sort")]

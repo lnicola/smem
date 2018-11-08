@@ -1,5 +1,6 @@
 use self::options::Options;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use regex::Regex;
 use std::cmp::Reverse;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirEntry, File};
@@ -44,7 +45,10 @@ fn get_username(uid: u32) -> String {
     }
 }
 
-fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Error> {
+fn get_statistics(
+    entry: &DirEntry,
+    user_filter: &Option<Regex>,
+) -> Result<Option<ProcessStatistics>, io::Error> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -71,6 +75,12 @@ fn get_statistics(entry: &DirEntry) -> Result<Option<ProcessStatistics>, io::Err
         }
     }
     let username = get_username(uid as u32);
+
+    if let Some(re) = user_filter.as_ref() {
+        if !re.is_match(&username) {
+            return Ok(None);
+        }
+    }
 
     let mut cmdline = fs::read(&path.join("cmdline"))?;
     for c in &mut cmdline {
@@ -132,9 +142,10 @@ fn main() {
         .unwrap_or_else(|e| panic!("can't read {}: {}", options.source.display(), e))
         .filter_map(|e| e.ok())
         .collect::<Vec<_>>();
+    let user_filter = options.user_filter.map(|r| Regex::new(&r).unwrap());
     let mut processes = entries
         .par_iter()
-        .filter_map(|e| get_statistics(e).ok())
+        .filter_map(|e| get_statistics(e, &user_filter).ok())
         .flatten()
         .collect::<Vec<_>>();
     if !options.no_header {
