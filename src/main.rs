@@ -136,10 +136,12 @@ fn main() {
         .filter_map(|e| get_statistics(e).ok())
         .flatten()
         .collect::<Vec<_>>();
-    println!(
-        "{:>10} {:>10} {:>10} {:>10} {:>10} {:>10} Command",
-        "User", "PID", "PSS", "RSS", "USS", "Swap"
-    );
+    if !options.no_header {
+        println!(
+            "{:>10} {:>10} {:>10} {:>10} {:>10} {:>10} Command",
+            "User", "PID", "PSS", "RSS", "USS", "Swap"
+        );
+    }
     processes.sort_by_key(|p| p.rss);
     for process in processes {
         println!(

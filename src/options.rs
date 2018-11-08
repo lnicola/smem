@@ -3,6 +3,8 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub struct Options {
+    #[structopt(short = "H", long = "no-header", help = "Disable the header line")]
+    pub no_header: bool,
     #[structopt(
         short = "S",
         long = "source",
