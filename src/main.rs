@@ -212,17 +212,32 @@ fn main() {
     field_printers.insert("Swap".to_string(), Box::new(print_swap));
     field_printers.insert("Command".to_string(), Box::new(print_cmdline));
 
+    let default_columns = vec![
+        "PID".to_string(),
+        "User".to_string(),
+        "PSS".to_string(),
+        "RSS".to_string(),
+        "USS".to_string(),
+        "Swap".to_string(),
+        "Command".to_string(),
+    ];
+
     let options = Options::from_args();
     let has_custom_columns = options.columns.len() > 0;
+    let active_columns = if has_custom_columns {
+        &options.columns
+    } else {
+        &default_columns
+    };
     let mut active_field_printers = Vec::new();
-    let mut custom_header = String::new();
-    for c in &options.columns {
+    let mut header = String::new();
+    for c in active_columns {
         active_field_printers.push(
             field_printers
                 .get(c)
                 .expect(&format!("Unknown column: {}", c)),
         );
-        custom_header.push_str(&format!("{:>10} ", c));
+        header.push_str(&format!("{:>10} ", c));
     }
     let process_filter = options
         .process_filter
@@ -240,14 +255,7 @@ fn main() {
         .flatten()
         .collect::<Vec<_>>();
     if !options.no_header {
-        if has_custom_columns {
-            println!("{}", custom_header);
-        } else {
-            println!(
-                "{:>10} {:>10} {:>10} {:>10} {:>10} {:>10} Command",
-                "PID", "User", "PSS", "RSS", "USS", "Swap"
-            );
-        }
+        println!("{}", header);
     }
     if options.reverse {
         processes.sort_by_key(|p| Reverse(p.rss));
@@ -259,18 +267,8 @@ fn main() {
         ..CONVENTIONAL
     };
     for process in processes {
-        if has_custom_columns {
-            for &printer in &active_field_printers {
-                printer(&process, &options, &file_size_opts);
-            }
-        } else {
-            print_pid(&process, &options, &file_size_opts);
-            print_user(&process, &options, &file_size_opts);
-            print_pss(&process, &options, &file_size_opts);
-            print_rss(&process, &options, &file_size_opts);
-            print_uss(&process, &options, &file_size_opts);
-            print_swap(&process, &options, &file_size_opts);
-            print_cmdline(&process, &options, &file_size_opts);
+        for &printer in &active_field_printers {
+            printer(&process, &options, &file_size_opts);
         }
         println!("");
     }
