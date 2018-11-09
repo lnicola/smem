@@ -3,6 +3,7 @@ use humansize::FileSize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 use structopt::StructOpt;
@@ -151,8 +152,93 @@ fn get_statistics(
     Ok(Some(statistics))
 }
 
+type FieldPrinter = fn(&ProcessStatistics, &Options, &FileSizeOpts);
+
+fn print_pid(process: &ProcessStatistics, _: &Options, _: &FileSizeOpts) {
+    print!("{:10} ", process.pid);
+}
+
+fn print_user(process: &ProcessStatistics, opts: &Options, _: &FileSizeOpts) {
+    if opts.numeric {
+        print!("{:10} ", process.uid);
+    } else {
+        print!("{:10} ", process.username);
+    }
+}
+
+fn print_pss(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
+    if options.abbreviate {
+        print!("{:>10} ", process.pss.file_size(&size_opts).unwrap());
+    } else {
+        print!("{:10} ", process.pss);
+    }
+}
+
+fn print_rss(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
+    if options.abbreviate {
+        print!("{:>10} ", process.rss.file_size(&size_opts).unwrap());
+    } else {
+        print!("{:10} ", process.rss);
+    }
+}
+
+fn print_uss(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
+    if options.abbreviate {
+        print!("{:>10} ", process.uss.file_size(&size_opts).unwrap());
+    } else {
+        print!("{:10} ", process.uss);
+    }
+}
+
+fn print_swap(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
+    if options.abbreviate {
+        print!("{:>10} ", process.swap.file_size(&size_opts).unwrap());
+    } else {
+        print!("{:10} ", process.swap);
+    }
+}
+
+fn print_cmdline(process: &ProcessStatistics, _: &Options, _: &FileSizeOpts) {
+    print!("{:10} ", process.cmdline);
+}
+
 fn main() {
+    let mut field_printers: HashMap<String, FieldPrinter> = HashMap::new();
+    field_printers.insert("PID".to_string(), print_pid);
+    field_printers.insert("User".to_string(), print_user);
+    field_printers.insert("PSS".to_string(), print_pss);
+    field_printers.insert("RSS".to_string(), print_rss);
+    field_printers.insert("USS".to_string(), print_uss);
+    field_printers.insert("Swap".to_string(), print_swap);
+    field_printers.insert("Command".to_string(), print_cmdline);
+
+    let default_columns = vec![
+        "PID".to_string(),
+        "User".to_string(),
+        "PSS".to_string(),
+        "RSS".to_string(),
+        "USS".to_string(),
+        "Swap".to_string(),
+        "Command".to_string(),
+    ];
+
     let options = Options::from_args();
+    let has_custom_columns = options.columns.len() > 0;
+    let active_columns = if has_custom_columns {
+        &options.columns
+    } else {
+        &default_columns
+    };
+    let mut active_field_printers = Vec::new();
+    let mut header = String::new();
+    for c in active_columns {
+        active_field_printers.push(
+            field_printers
+                .get(c)
+                .expect(&format!("Unknown column: {}", c)),
+        );
+        header.push_str(&format!("{:>10} ", c));
+    }
     let process_filter = options
         .process_filter
         .as_ref()
@@ -169,10 +255,7 @@ fn main() {
         .flatten()
         .collect::<Vec<_>>();
     if !options.no_header {
-        println!(
-            "{:>10} {:>10} {:>10} {:>10} {:>10} {:>10} Command",
-            "User", "PID", "PSS", "RSS", "USS", "Swap"
-        );
+        println!("{}", header);
     }
     if options.reverse {
         processes.sort_by_key(|p| Reverse(p.rss));
@@ -184,23 +267,9 @@ fn main() {
         ..CONVENTIONAL
     };
     for process in processes {
-        if options.numeric {
-            print!("{:10} ", process.uid);
-        } else {
-            print!("{:10} ", process.username);
+        for printer in &active_field_printers {
+            printer(&process, &options, &file_size_opts);
         }
-        print!("{:10} ", process.pid);
-        if options.abbreviate {
-            print!("{:>10} ", process.pss.file_size(&file_size_opts).unwrap());
-            print!("{:>10} ", process.rss.file_size(&file_size_opts).unwrap());
-            print!("{:>10} ", process.uss.file_size(&file_size_opts).unwrap());
-            print!("{:>10} ", process.swap.file_size(&file_size_opts).unwrap());
-        } else {
-            print!("{:10} ", process.pss);
-            print!("{:10} ", process.rss);
-            print!("{:10} ", process.uss);
-            print!("{:10} ", process.swap);
-        }
-        println!("{}", process.cmdline);
+        println!("");
     }
 }

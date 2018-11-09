@@ -23,4 +23,6 @@ pub struct Options {
         parse(from_os_str)
     )]
     pub source: PathBuf,
+    #[structopt(short = "c", long = "columns", help = "Columns to show")]
+    pub columns: Vec<String>,
 }
