@@ -1,15 +1,17 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
+use humansize::FileSize;
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use regex::Regex;
 
+use std::collections::hash_map::HashMap;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 
 use structopt::StructOpt;
 
-use self::fields::Field;
+use self::fields::{Field, FieldKind};
 use self::options::Options;
 use self::stats::ProcessStatistics;
 
@@ -196,9 +198,34 @@ fn main() {
         space: false,
         ..CONVENTIONAL
     };
+    let mut totals: HashMap<&Field, usize> = HashMap::new();
     for process in processes {
         for c in active_fields {
             print!("{} ", &process.format_field(c, &options, &file_size_opts));
+            if options.totals && c.kind(&options) == FieldKind::Size {
+                match totals.get_mut(c) {
+                    Some(n) => *n += process.get_size_field(c),
+                    None => {
+                        totals.insert(c, 0);
+                    }
+                }
+            }
+        }
+        println!("");
+    }
+    if options.totals {
+        println!("--------------------------------------------------------------------------------");
+        for c in active_fields {
+            if c.kind(&options) == FieldKind::Size {
+                let value = totals.get(c).unwrap();
+                if options.abbreviate {
+                    print!("{:>10} ", value.file_size(&file_size_opts).unwrap())
+                } else {
+                    print!("{:10} ", value)
+                }
+            } else {
+                print!("{:10} ", " ");
+            }
         }
         println!("");
     }

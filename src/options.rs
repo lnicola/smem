@@ -27,4 +27,6 @@ pub struct Options {
     pub fields: Vec<super::fields::Field>,
     #[structopt(short = "s", long = "sort", help = "Column to sort on")]
     pub sort_field: Option<super::fields::Field>,
+    #[structopt(short = "t", long = "totals", help = "Show totals")]
+    pub totals: bool,
 }

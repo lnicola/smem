@@ -78,4 +78,15 @@ impl ProcessStatistics {
             Field::Cmdline => self.cmdline.cmp(&other.cmdline),
         }
     }
+
+    // XXX This is kind of gross
+    pub fn get_size_field(&self, field: &Field) -> usize {
+        match field {
+            Field::Pss => self.pss.into(),
+            Field::Rss => self.rss.into(),
+            Field::Uss => self.uss.into(),
+            Field::Swap => self.swap.into(),
+            _ => panic!(format!("Not a size field: {}", field.name())),
+        }
+    }
 }

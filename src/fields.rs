@@ -1,9 +1,11 @@
 use std::str::FromStr;
 
+use super::options::Options;
+
 // TODO The variants should map 1-to-1 to the ProcessStatistics fields.
 //      Logic for user name vs user ID should be pushed out from the
 //      various methods of ProcessStatistics.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub enum Field {
     Pid,
     User,
@@ -12,6 +14,13 @@ pub enum Field {
     Uss,
     Swap,
     Cmdline,
+}
+
+#[derive(Eq, PartialEq)]
+pub enum FieldKind {
+    Id,
+    Size,
+    Text,
 }
 
 impl Field {
@@ -24,6 +33,21 @@ impl Field {
             Field::Uss => "Uss",
             Field::Swap => "Swap",
             Field::Cmdline => "Cmdline",
+        }
+    }
+
+    pub fn kind(&self, opts: &Options) -> FieldKind {
+        match self {
+            Field::Pid => FieldKind::Id,
+            Field::Pss | Field::Rss | Field::Uss | Field::Swap => FieldKind::Size,
+            Field::User => {
+                if opts.numeric {
+                    FieldKind::Id
+                } else {
+                    FieldKind::Text
+                }
+            }
+            Field::Cmdline => FieldKind::Text,
         }
     }
 }
