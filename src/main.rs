@@ -1,28 +1,24 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
-use humansize::FileSize;
+
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
 use regex::Regex;
+
 use std::cmp::Reverse;
-use std::collections::HashMap;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
+
 use structopt::StructOpt;
 
+use self::fields::Field;
 use self::options::Options;
+use self::stats::ProcessStatistics;
+
+mod fields;
 
 mod options;
 
-struct ProcessStatistics {
-    pid: u16,
-    uid: i32,
-    username: String,
-    command: String,
-    cmdline: String,
-    rss: usize,
-    pss: usize,
-    uss: usize,
-    swap: usize,
-}
+mod stats;
 
 fn parse_size(s: &str) -> usize {
     let s = &s[..s.len() - 3];
@@ -152,92 +148,26 @@ fn get_statistics(
     Ok(Some(statistics))
 }
 
-type FieldPrinter = fn(&ProcessStatistics, &Options, &FileSizeOpts);
-
-fn print_pid(process: &ProcessStatistics, _: &Options, _: &FileSizeOpts) {
-    print!("{:10} ", process.pid);
-}
-
-fn print_user(process: &ProcessStatistics, opts: &Options, _: &FileSizeOpts) {
-    if opts.numeric {
-        print!("{:10} ", process.uid);
-    } else {
-        print!("{:10} ", process.username);
-    }
-}
-
-fn print_pss(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
-    if options.abbreviate {
-        print!("{:>10} ", process.pss.file_size(&size_opts).unwrap());
-    } else {
-        print!("{:10} ", process.pss);
-    }
-}
-
-fn print_rss(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
-    if options.abbreviate {
-        print!("{:>10} ", process.rss.file_size(&size_opts).unwrap());
-    } else {
-        print!("{:10} ", process.rss);
-    }
-}
-
-fn print_uss(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
-    if options.abbreviate {
-        print!("{:>10} ", process.uss.file_size(&size_opts).unwrap());
-    } else {
-        print!("{:10} ", process.uss);
-    }
-}
-
-fn print_swap(process: &ProcessStatistics, options: &Options, size_opts: &FileSizeOpts) {
-    if options.abbreviate {
-        print!("{:>10} ", process.swap.file_size(&size_opts).unwrap());
-    } else {
-        print!("{:10} ", process.swap);
-    }
-}
-
-fn print_cmdline(process: &ProcessStatistics, _: &Options, _: &FileSizeOpts) {
-    print!("{:10} ", process.cmdline);
-}
-
 fn main() {
-    let mut field_printers: HashMap<String, FieldPrinter> = HashMap::new();
-    field_printers.insert("PID".to_string(), print_pid);
-    field_printers.insert("User".to_string(), print_user);
-    field_printers.insert("PSS".to_string(), print_pss);
-    field_printers.insert("RSS".to_string(), print_rss);
-    field_printers.insert("USS".to_string(), print_uss);
-    field_printers.insert("Swap".to_string(), print_swap);
-    field_printers.insert("Command".to_string(), print_cmdline);
-
-    let default_columns = vec![
-        "PID".to_string(),
-        "User".to_string(),
-        "PSS".to_string(),
-        "RSS".to_string(),
-        "USS".to_string(),
-        "Swap".to_string(),
-        "Command".to_string(),
+    let default_fields = vec![
+        Field::Pid,
+        Field::User,
+        Field::Pss,
+        Field::Rss,
+        Field::Uss,
+        Field::Swap,
+        Field::Cmdline,
     ];
 
     let options = Options::from_args();
-    let has_custom_columns = options.columns.len() > 0;
-    let active_columns = if has_custom_columns {
-        &options.columns
+    let active_fields = if options.fields.len() > 0 {
+        &options.fields
     } else {
-        &default_columns
+        &default_fields
     };
-    let mut active_field_printers = Vec::new();
     let mut header = String::new();
-    for c in active_columns {
-        active_field_printers.push(
-            field_printers
-                .get(c)
-                .expect(&format!("Unknown column: {}", c)),
-        );
-        header.push_str(&format!("{:>10} ", c));
+    for c in active_fields {
+        header.push_str(&format!("{:>10} ", c.name()));
     }
     let process_filter = options
         .process_filter
@@ -267,8 +197,8 @@ fn main() {
         ..CONVENTIONAL
     };
     for process in processes {
-        for printer in &active_field_printers {
-            printer(&process, &options, &file_size_opts);
+        for c in active_fields {
+            print!("{} ", &process.format_field(c, &options, &file_size_opts));
         }
         println!("");
     }
