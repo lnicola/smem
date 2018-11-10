@@ -152,7 +152,7 @@ fn get_statistics(
     Ok(Some(statistics))
 }
 
-type FieldPrinter = Fn(&ProcessStatistics, &Options, &FileSizeOpts);
+type FieldPrinter = fn(&ProcessStatistics, &Options, &FileSizeOpts);
 
 fn print_pid(process: &ProcessStatistics, _: &Options, _: &FileSizeOpts) {
     print!("{:10} ", process.pid);
@@ -203,14 +203,14 @@ fn print_cmdline(process: &ProcessStatistics, _: &Options, _: &FileSizeOpts) {
 }
 
 fn main() {
-    let mut field_printers: HashMap<String, Box<FieldPrinter>> = HashMap::new();
-    field_printers.insert("PID".to_string(), Box::new(print_pid));
-    field_printers.insert("User".to_string(), Box::new(print_user));
-    field_printers.insert("PSS".to_string(), Box::new(print_pss));
-    field_printers.insert("RSS".to_string(), Box::new(print_rss));
-    field_printers.insert("USS".to_string(), Box::new(print_uss));
-    field_printers.insert("Swap".to_string(), Box::new(print_swap));
-    field_printers.insert("Command".to_string(), Box::new(print_cmdline));
+    let mut field_printers: HashMap<String, FieldPrinter> = HashMap::new();
+    field_printers.insert("PID".to_string(), print_pid);
+    field_printers.insert("User".to_string(), print_user);
+    field_printers.insert("PSS".to_string(), print_pss);
+    field_printers.insert("RSS".to_string(), print_rss);
+    field_printers.insert("USS".to_string(), print_uss);
+    field_printers.insert("Swap".to_string(), print_swap);
+    field_printers.insert("Command".to_string(), print_cmdline);
 
     let default_columns = vec![
         "PID".to_string(),
@@ -267,7 +267,7 @@ fn main() {
         ..CONVENTIONAL
     };
     for process in processes {
-        for &printer in &active_field_printers {
+        for printer in &active_field_printers {
             printer(&process, &options, &file_size_opts);
         }
         println!("");
