@@ -24,5 +24,5 @@ pub struct Options {
     )]
     pub source: PathBuf,
     #[structopt(short = "c", long = "columns", help = "Columns to show")]
-    pub columns: Vec<String>,
+    pub fields: Vec<super::fields::Field>,
 }
