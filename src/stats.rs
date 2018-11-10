@@ -16,14 +16,6 @@ pub struct ProcessInfo {
     pub sizes: ProcessSizes,
 }
 
-fn format_size(size: usize, opts: &Options, size_opts: &FileSizeOpts) -> String {
-    if opts.abbreviate {
-        format!("{:>10}", size.file_size(&size_opts).unwrap())
-    } else {
-        format!("{:10}", size)
-    }
-}
-
 impl ProcessInfo {
     pub fn format_field(&self, field: &Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
         match field {
@@ -35,10 +27,10 @@ impl ProcessInfo {
                     format!("{:10}", self.username)
                 }
             }
-            Field::Pss => format_size(self.sizes.pss, &opts, &size_opts),
-            Field::Rss => format_size(self.sizes.rss, &opts, &size_opts),
-            Field::Uss => format_size(self.sizes.uss, &opts, &size_opts),
-            Field::Swap => format_size(self.sizes.swap, &opts, &size_opts),
+            Field::Pss => self.sizes.pss.format(&opts, &size_opts),
+            Field::Rss => self.sizes.rss.format(&opts, &size_opts),
+            Field::Uss => self.sizes.uss.format(&opts, &size_opts),
+            Field::Swap => self.sizes.swap.format(&opts, &size_opts),
             Field::Cmdline => format!("{:10}", self.cmdline),
         }
     }
@@ -62,29 +54,56 @@ impl ProcessInfo {
     }
 }
 
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+pub struct Size(pub usize);
+
+impl Size {
+    pub fn format(&self, opts: &Options, size_opts: &FileSizeOpts) -> String {
+        if opts.abbreviate {
+            format!("{:>10}", self.0.file_size(&size_opts).unwrap())
+        } else {
+            format!("{:10}", self.0)
+        }
+    }
+}
+
 pub struct ProcessSizes {
-    pub rss: usize,
-    pub pss: usize,
-    pub uss: usize,
-    pub swap: usize,
+    pub rss: Size,
+    pub pss: Size,
+    pub uss: Size,
+    pub swap: Size,
+}
+
+impl Add for Size {
+    type Output = Size;
+
+    fn add(self, other: Size) -> Size {
+        Size(self.0 + other.0)
+    }
+}
+
+impl AddAssign for Size {
+    fn add_assign(&mut self, other: Size) {
+        self.0 += other.0;
+    }
 }
 
 impl ProcessSizes {
     pub fn new() -> Self {
         ProcessSizes {
-            rss: 0,
-            pss: 0,
-            uss: 0,
-            swap: 0,
+            rss: Size(0),
+            pss: Size(0),
+            uss: Size(0),
+            swap: Size(0),
         }
     }
 
     pub fn format_field(&self, field: &Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
         match field {
-            Field::Pss => format_size(self.pss, &opts, &size_opts),
-            Field::Rss => format_size(self.rss, &opts, &size_opts),
-            Field::Uss => format_size(self.uss, &opts, &size_opts),
-            Field::Swap => format_size(self.swap, &opts, &size_opts),
+            Field::Pss => self.pss.format(&opts, &size_opts),
+            Field::Rss => self.rss.format(&opts, &size_opts),
+            Field::Uss => self.uss.format(&opts, &size_opts),
+            Field::Swap => self.swap.format(&opts, &size_opts),
             _ => panic!(format!("Field not supported for totals: {}", field.name())),
         }
     }
@@ -105,11 +124,9 @@ impl Add for ProcessSizes {
 
 impl AddAssign for ProcessSizes {
     fn add_assign(&mut self, other: ProcessSizes) {
-        *self = ProcessSizes {
-            rss: self.rss + other.rss,
-            pss: self.pss + other.pss,
-            uss: self.uss + other.uss,
-            swap: self.swap + other.swap,
-        }
+        self.rss += other.rss;
+        self.pss += other.pss;
+        self.uss += other.uss;
+        self.swap += other.swap;
     }
 }

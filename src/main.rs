@@ -11,7 +11,7 @@ use structopt::StructOpt;
 
 use self::fields::{Field, FieldKind};
 use self::options::Options;
-use self::stats::{ProcessInfo, ProcessSizes};
+use self::stats::{ProcessInfo, ProcessSizes, Size};
 
 mod fields;
 
@@ -140,10 +140,10 @@ fn get_statistics(
         command,
         cmdline,
         sizes: ProcessSizes {
-            pss: pss,
-            rss: rss,
-            uss: uss,
-            swap: swap,
+            pss: Size(pss),
+            rss: Size(rss),
+            uss: Size(uss),
+            swap: Size(swap),
         },
     };
     Ok(Some(statistics))
