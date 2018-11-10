@@ -196,10 +196,12 @@ fn main() {
         space: false,
         ..CONVENTIONAL
     };
+    let mut acc = String::new();
     for process in processes {
         for c in active_fields {
             print!("{} ", &process.format_field(c, &options, &file_size_opts));
         }
-        println!("");
+        acc.push_str("\n");
     }
+    print!("{}", acc);
 }
