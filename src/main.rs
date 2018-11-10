@@ -11,7 +11,7 @@ use structopt::StructOpt;
 
 use self::fields::{Field, FieldKind};
 use self::options::Options;
-use self::stats::{ProcessInfo, ProcessStats};
+use self::stats::{ProcessInfo, ProcessSizes};
 
 mod fields;
 
@@ -139,10 +139,12 @@ fn get_statistics(
         username,
         command,
         cmdline,
-        pss,
-        rss,
-        uss,
-        swap,
+        sizes: ProcessSizes {
+            pss: pss,
+            rss: rss,
+            uss: uss,
+            swap: swap,
+        },
     };
     Ok(Some(statistics))
 }
@@ -196,13 +198,13 @@ fn main() {
         space: false,
         ..CONVENTIONAL
     };
-    let mut totals = ProcessStats::new();
+    let mut totals = ProcessSizes::new();
     for process in processes {
         for c in active_fields {
             print!("{} ", &process.format_field(c, &options, &file_size_opts));
         }
         println!("");
-        totals.update(&process);
+        totals += process.sizes;
     }
     if options.totals {
         println!(

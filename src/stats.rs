@@ -2,6 +2,7 @@ use humansize::file_size_opts::FileSizeOpts;
 use humansize::FileSize;
 
 use std::cmp::Ordering;
+use std::ops::{Add, AddAssign};
 
 use super::fields::Field;
 use super::options::Options;
@@ -12,10 +13,7 @@ pub struct ProcessInfo {
     pub username: String,
     pub command: String,
     pub cmdline: String,
-    pub rss: usize,
-    pub pss: usize,
-    pub uss: usize,
-    pub swap: usize,
+    pub sizes: ProcessSizes,
 }
 
 fn format_size(size: usize, opts: &Options, size_opts: &FileSizeOpts) -> String {
@@ -37,10 +35,10 @@ impl ProcessInfo {
                     format!("{:10}", self.username)
                 }
             }
-            Field::Pss => format_size(self.pss, &opts, &size_opts),
-            Field::Rss => format_size(self.rss, &opts, &size_opts),
-            Field::Uss => format_size(self.uss, &opts, &size_opts),
-            Field::Swap => format_size(self.swap, &opts, &size_opts),
+            Field::Pss => format_size(self.sizes.pss, &opts, &size_opts),
+            Field::Rss => format_size(self.sizes.rss, &opts, &size_opts),
+            Field::Uss => format_size(self.sizes.uss, &opts, &size_opts),
+            Field::Swap => format_size(self.sizes.swap, &opts, &size_opts),
             Field::Cmdline => format!("{:10}", self.cmdline),
         }
     }
@@ -55,37 +53,30 @@ impl ProcessInfo {
                     self.username.cmp(&other.username)
                 }
             }
-            Field::Pss => self.pss.cmp(&other.pss),
-            Field::Rss => self.rss.cmp(&other.rss),
-            Field::Uss => self.uss.cmp(&other.uss),
-            Field::Swap => self.swap.cmp(&other.swap),
+            Field::Pss => self.sizes.pss.cmp(&other.sizes.pss),
+            Field::Rss => self.sizes.rss.cmp(&other.sizes.rss),
+            Field::Uss => self.sizes.uss.cmp(&other.sizes.uss),
+            Field::Swap => self.sizes.swap.cmp(&other.sizes.swap),
             Field::Cmdline => self.cmdline.cmp(&other.cmdline),
         }
     }
 }
 
-pub struct ProcessStats {
+pub struct ProcessSizes {
     pub rss: usize,
     pub pss: usize,
     pub uss: usize,
     pub swap: usize,
 }
 
-impl ProcessStats {
+impl ProcessSizes {
     pub fn new() -> Self {
-        ProcessStats {
+        ProcessSizes {
             rss: 0,
             pss: 0,
             uss: 0,
             swap: 0,
         }
-    }
-
-    pub fn update(&mut self, info: &ProcessInfo) {
-        self.rss += info.rss;
-        self.pss += info.pss;
-        self.uss += info.uss;
-        self.swap += info.swap;
     }
 
     pub fn format_field(&self, field: &Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
@@ -95,6 +86,30 @@ impl ProcessStats {
             Field::Uss => format_size(self.uss, &opts, &size_opts),
             Field::Swap => format_size(self.swap, &opts, &size_opts),
             _ => panic!(format!("Field not supported for totals: {}", field.name())),
+        }
+    }
+}
+
+impl Add for ProcessSizes {
+    type Output = ProcessSizes;
+
+    fn add(self, other: ProcessSizes) -> ProcessSizes {
+        ProcessSizes {
+            rss: self.rss + other.rss,
+            pss: self.pss + other.pss,
+            uss: self.uss + other.uss,
+            swap: self.swap + other.swap,
+        }
+    }
+}
+
+impl AddAssign for ProcessSizes {
+    fn add_assign(&mut self, other: ProcessSizes) {
+        *self = ProcessSizes {
+            rss: self.rss + other.rss,
+            pss: self.pss + other.pss,
+            uss: self.uss + other.uss,
+            swap: self.swap + other.swap,
         }
     }
 }
