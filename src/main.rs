@@ -1,11 +1,9 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
-use humansize::FileSize;
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use regex::Regex;
 
-use std::collections::hash_map::HashMap;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 
@@ -13,7 +11,7 @@ use structopt::StructOpt;
 
 use self::fields::{Field, FieldKind};
 use self::options::Options;
-use self::stats::ProcessStatistics;
+use self::stats::{ProcessInfo, ProcessStats};
 
 mod fields;
 
@@ -49,7 +47,7 @@ fn get_statistics(
     entry: &DirEntry,
     process_filter: &Option<Regex>,
     user_filter: &Option<Regex>,
-) -> Result<Option<ProcessStatistics>, io::Error> {
+) -> Result<Option<ProcessInfo>, io::Error> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -135,7 +133,7 @@ fn get_statistics(
     }
 
     let uss = private_clean + private_dirty;
-    let statistics = ProcessStatistics {
+    let statistics = ProcessInfo {
         pid,
         uid,
         username,
@@ -198,31 +196,21 @@ fn main() {
         space: false,
         ..CONVENTIONAL
     };
-    let mut totals: HashMap<&Field, usize> = HashMap::new();
+    let mut totals = ProcessStats::new();
     for process in processes {
         for c in active_fields {
             print!("{} ", &process.format_field(c, &options, &file_size_opts));
-            if options.totals && c.kind(&options) == FieldKind::Size {
-                match totals.get_mut(c) {
-                    Some(n) => *n += process.get_size_field(c),
-                    None => {
-                        totals.insert(c, 0);
-                    }
-                }
-            }
         }
         println!("");
+        totals.update(&process);
     }
     if options.totals {
-        println!("--------------------------------------------------------------------------------");
+        println!(
+            "--------------------------------------------------------------------------------"
+        );
         for c in active_fields {
             if c.kind(&options) == FieldKind::Size {
-                let value = totals.get(c).unwrap();
-                if options.abbreviate {
-                    print!("{:>10} ", value.file_size(&file_size_opts).unwrap())
-                } else {
-                    print!("{:10} ", value)
-                }
+                print!("{} ", totals.format_field(c, &options, &file_size_opts));
             } else {
                 print!("{:10} ", " ");
             }

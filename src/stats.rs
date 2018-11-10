@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use super::fields::Field;
 use super::options::Options;
 
-pub struct ProcessStatistics {
+pub struct ProcessInfo {
     pub pid: u16,
     pub uid: i32,
     pub username: String,
@@ -18,7 +18,15 @@ pub struct ProcessStatistics {
     pub swap: usize,
 }
 
-impl ProcessStatistics {
+fn format_size(size: usize, opts: &Options, size_opts: &FileSizeOpts) -> String {
+    if opts.abbreviate {
+        format!("{:>10}", size.file_size(&size_opts).unwrap())
+    } else {
+        format!("{:10}", size)
+    }
+}
+
+impl ProcessInfo {
     pub fn format_field(&self, field: &Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
         match field {
             Field::Pid => format!("{:10}", self.pid),
@@ -29,34 +37,10 @@ impl ProcessStatistics {
                     format!("{:10}", self.username)
                 }
             }
-            Field::Pss => {
-                if opts.abbreviate {
-                    format!("{:>10}", self.pss.file_size(&size_opts).unwrap())
-                } else {
-                    format!("{:10}", self.pss)
-                }
-            }
-            Field::Rss => {
-                if opts.abbreviate {
-                    format!("{:>10}", self.rss.file_size(&size_opts).unwrap())
-                } else {
-                    format!("{:10}", self.rss)
-                }
-            }
-            Field::Uss => {
-                if opts.abbreviate {
-                    format!("{:>10} ", self.uss.file_size(&size_opts).unwrap())
-                } else {
-                    format!("{:10} ", self.uss)
-                }
-            }
-            Field::Swap => {
-                if opts.abbreviate {
-                    format!("{:>10}", self.swap.file_size(&size_opts).unwrap())
-                } else {
-                    format!("{:10}", self.swap)
-                }
-            }
+            Field::Pss => format_size(self.pss, &opts, &size_opts),
+            Field::Rss => format_size(self.rss, &opts, &size_opts),
+            Field::Uss => format_size(self.uss, &opts, &size_opts),
+            Field::Swap => format_size(self.swap, &opts, &size_opts),
             Field::Cmdline => format!("{:10}", self.cmdline),
         }
     }
@@ -78,15 +62,39 @@ impl ProcessStatistics {
             Field::Cmdline => self.cmdline.cmp(&other.cmdline),
         }
     }
+}
 
-    // XXX This is kind of gross
-    pub fn get_size_field(&self, field: &Field) -> usize {
+pub struct ProcessStats {
+    pub rss: usize,
+    pub pss: usize,
+    pub uss: usize,
+    pub swap: usize,
+}
+
+impl ProcessStats {
+    pub fn new() -> Self {
+        ProcessStats {
+            rss: 0,
+            pss: 0,
+            uss: 0,
+            swap: 0,
+        }
+    }
+
+    pub fn update(&mut self, info: &ProcessInfo) {
+        self.rss += info.rss;
+        self.pss += info.pss;
+        self.uss += info.uss;
+        self.swap += info.swap;
+    }
+
+    pub fn format_field(&self, field: &Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
         match field {
-            Field::Pss => self.pss.into(),
-            Field::Rss => self.rss.into(),
-            Field::Uss => self.uss.into(),
-            Field::Swap => self.swap.into(),
-            _ => panic!(format!("Not a size field: {}", field.name())),
+            Field::Pss => format_size(self.pss, &opts, &size_opts),
+            Field::Rss => format_size(self.rss, &opts, &size_opts),
+            Field::Uss => format_size(self.uss, &opts, &size_opts),
+            Field::Swap => format_size(self.swap, &opts, &size_opts),
+            _ => panic!(format!("Field not supported for totals: {}", field.name())),
         }
     }
 }
