@@ -1,6 +1,8 @@
 use humansize::file_size_opts::FileSizeOpts;
 use humansize::FileSize;
 
+use std::cmp::Ordering;
+
 use super::fields::Field;
 use super::options::Options;
 
@@ -56,6 +58,24 @@ impl ProcessStatistics {
                 }
             }
             Field::Cmdline => format!("{:10}", self.cmdline),
+        }
+    }
+
+    pub fn cmp_by(&self, field: &Field, other: &Self, opts: &Options) -> Ordering {
+        match field {
+            Field::Pid => self.pid.cmp(&other.pid),
+            Field::User => {
+                if opts.numeric {
+                    self.uid.cmp(&other.uid)
+                } else {
+                    self.username.cmp(&other.username)
+                }
+            }
+            Field::Pss => self.pss.cmp(&other.pss),
+            Field::Rss => self.rss.cmp(&other.rss),
+            Field::Uss => self.uss.cmp(&other.uss),
+            Field::Swap => self.swap.cmp(&other.swap),
+            Field::Cmdline => self.cmdline.cmp(&other.cmdline),
         }
     }
 }

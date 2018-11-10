@@ -4,7 +4,6 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use regex::Regex;
 
-use std::cmp::Reverse;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
 
@@ -187,10 +186,11 @@ fn main() {
     if !options.no_header {
         println!("{}", header);
     }
+    let sort_field = options.sort_field.unwrap_or(Field::Rss);
     if options.reverse {
-        processes.sort_by_key(|p| Reverse(p.rss));
+        processes.sort_by(|p1, p2| p1.cmp_by(&sort_field, p2, &options).reverse());
     } else {
-        processes.sort_by_key(|p| p.rss);
+        processes.sort_by(|p1, p2| p1.cmp_by(&sort_field, p2, &options));
     }
     let file_size_opts = FileSizeOpts {
         space: false,

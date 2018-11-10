@@ -25,4 +25,6 @@ pub struct Options {
     pub source: PathBuf,
     #[structopt(short = "c", long = "columns", help = "Columns to show")]
     pub fields: Vec<super::fields::Field>,
+    #[structopt(short = "s", long = "sort", help = "Column to sort on")]
+    pub sort_field: Option<super::fields::Field>,
 }
