@@ -9,9 +9,9 @@ use std::io::{self, BufRead, BufReader};
 
 use structopt::StructOpt;
 
-use self::fields::Field;
+use self::fields::{Field, FieldKind};
 use self::options::Options;
-use self::stats::ProcessStatistics;
+use self::stats::{ProcessInfo, ProcessSizes, Size};
 
 mod fields;
 
@@ -47,7 +47,7 @@ fn get_statistics(
     entry: &DirEntry,
     process_filter: &Option<Regex>,
     user_filter: &Option<Regex>,
-) -> Result<Option<ProcessStatistics>, io::Error> {
+) -> Result<Option<ProcessInfo>, io::Error> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -133,16 +133,18 @@ fn get_statistics(
     }
 
     let uss = private_clean + private_dirty;
-    let statistics = ProcessStatistics {
+    let statistics = ProcessInfo {
         pid,
         uid,
         username,
         command,
         cmdline,
-        pss,
-        rss,
-        uss,
-        swap,
+        sizes: ProcessSizes {
+            pss: Size(pss),
+            rss: Size(rss),
+            uss: Size(uss),
+            swap: Size(swap),
+        },
     };
     Ok(Some(statistics))
 }
@@ -196,9 +198,24 @@ fn main() {
         space: false,
         ..CONVENTIONAL
     };
+    let mut totals = ProcessSizes::new();
     for process in processes {
         for c in active_fields {
             print!("{} ", &process.format_field(c, &options, &file_size_opts));
+        }
+        println!("");
+        totals += process.sizes;
+    }
+    if options.totals {
+        println!(
+            "--------------------------------------------------------------------------------"
+        );
+        for c in active_fields {
+            if c.kind(&options) == FieldKind::Size {
+                print!("{} ", totals.format_field(c, &options, &file_size_opts));
+            } else {
+                print!("{:10} ", " ");
+            }
         }
         println!("");
     }
