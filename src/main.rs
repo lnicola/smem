@@ -168,7 +168,11 @@ fn main() {
     };
     let mut header = String::new();
     for c in active_fields {
-        header.push_str(&format!("{:>10} ", c.name()));
+        if c.kind(&options) == FieldKind::Text {
+            header.push_str(&format!("{:<10} ", c.name()));
+        } else {
+            header.push_str(&format!("{:>10} ", c.name()));
+        }
     }
     let process_filter = options
         .process_filter
