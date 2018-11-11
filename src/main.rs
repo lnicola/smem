@@ -5,7 +5,8 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 
 use std::fs::{self, DirEntry, File};
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, ErrorKind, Result, Write};
+use std::process;
 
 use structopt::StructOpt;
 
@@ -47,7 +48,7 @@ fn get_statistics(
     entry: &DirEntry,
     process_filter: &Option<Regex>,
     user_filter: &Option<Regex>,
-) -> Result<Option<ProcessInfo>, io::Error> {
+) -> Result<Option<ProcessInfo>> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -149,7 +150,7 @@ fn get_statistics(
     Ok(Some(statistics))
 }
 
-fn main() {
+fn print_processes(options: &Options) -> Result<()> {
     let default_fields = vec![
         Field::Pid,
         Field::User,
@@ -160,20 +161,11 @@ fn main() {
         Field::Cmdline,
     ];
 
-    let options = Options::from_args();
     let active_fields = if options.fields.len() > 0 {
         &options.fields
     } else {
         &default_fields
     };
-    let mut header = String::new();
-    for c in active_fields {
-        if c.kind(&options) == FieldKind::Text {
-            header.push_str(&format!("{:<10} ", c.name()));
-        } else {
-            header.push_str(&format!("{:>10} ", c.name()));
-        }
-    }
     let process_filter = options
         .process_filter
         .as_ref()
@@ -189,8 +181,19 @@ fn main() {
         .filter_map(|e| get_statistics(e, &process_filter, &user_filter).ok())
         .flatten()
         .collect::<Vec<_>>();
+
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
+
     if !options.no_header {
-        println!("{}", header);
+        for c in active_fields {
+            if c.kind(&options) == FieldKind::Text {
+                write!(stdout, "{:<10} ", c.name())?;
+            } else {
+                write!(stdout, "{:>10} ", c.name())?;
+            }
+        }
+        writeln!(stdout, "")?;
     }
     let sort_field = options.sort_field.unwrap_or(Field::Rss);
     if options.reverse {
@@ -205,22 +208,49 @@ fn main() {
     let mut totals = ProcessSizes::new();
     for process in processes {
         for c in active_fields {
-            print!("{} ", &process.format_field(c, &options, &file_size_opts));
+            write!(
+                stdout,
+                "{} ",
+                &process.format_field(c, &options, &file_size_opts)
+            )?;
         }
-        println!("");
+        writeln!(stdout, "")?;
         totals += process.sizes;
     }
     if options.totals {
-        println!(
+        writeln!(
+            stdout,
             "--------------------------------------------------------------------------------"
-        );
+        )?;
         for c in active_fields {
             if c.kind(&options) == FieldKind::Size {
-                print!("{} ", totals.format_field(c, &options, &file_size_opts));
+                write!(
+                    stdout,
+                    "{} ",
+                    totals.format_field(c, &options, &file_size_opts)
+                )?;
             } else {
-                print!("{:10} ", " ");
+                write!(stdout, "{:10} ", " ")?;
             }
         }
-        println!("");
+        writeln!(stdout, "")?;
+    }
+    Ok(())
+}
+
+fn run(options: &Options) -> Result<()> {
+    print_processes(&options)
+}
+
+fn main() {
+    let options = Options::from_args();
+    match run(&options) {
+        Ok(_) => {}
+        Err(ref e) if e.kind() == ErrorKind::BrokenPipe => {
+            process::exit(141);
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+        }
     }
 }
