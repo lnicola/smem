@@ -4,7 +4,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use structopt::StructOpt;
 
 use std::fs::{self, DirEntry, File};
-use std::io::{BufRead, BufReader, Result};
+use std::io::{self, BufRead, BufReader, Result};
 
 use self::fields::{Field, FieldKind};
 use self::filter::Filters;
@@ -196,7 +196,10 @@ fn print_processes(options: &Options) -> Result<()> {
     let mut totals = ProcessSizes::new();
     for process in processes {
         for &c in active_fields {
-            print!("{} ", &process.format_field(c, &options, &file_size_opts));
+            process
+                .format_field(io::stdout(), c, &options, &file_size_opts)
+                .unwrap();
+            print!(" ");
         }
         println!();
         totals += process.sizes;
@@ -207,7 +210,10 @@ fn print_processes(options: &Options) -> Result<()> {
         );
         for &c in active_fields {
             if c.kind(&options) == FieldKind::Size {
-                print!("{} ", totals.format_field(c, &options, &file_size_opts));
+                totals
+                    .format_field(io::stdout(), c, &options, &file_size_opts)
+                    .unwrap();
+                print!(" ");
             } else {
                 print!("{:10} ", " ");
             }

@@ -2,6 +2,7 @@ use humansize::file_size_opts::FileSizeOpts;
 use humansize::FileSize;
 
 use std::cmp::Ordering;
+use std::io::{Result, Write};
 use std::ops::{Add, AddAssign};
 
 use super::fields::Field;
@@ -17,21 +18,27 @@ pub struct ProcessInfo {
 }
 
 impl ProcessInfo {
-    pub fn format_field(&self, field: Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
+    pub fn format_field<W: Write>(
+        &self,
+        mut writer: W,
+        field: Field,
+        opts: &Options,
+        size_opts: &FileSizeOpts,
+    ) -> Result<()> {
         match field {
-            Field::Pid => format!("{:10}", self.pid),
+            Field::Pid => write!(writer, "{:10}", self.pid),
             Field::User => {
                 if opts.numeric {
-                    format!("{:10}", self.uid)
+                    write!(writer, "{:10}", self.uid)
                 } else {
-                    format!("{:10}", self.username)
+                    write!(writer, "{:10}", self.username)
                 }
             }
-            Field::Pss => self.sizes.pss.format(&opts, &size_opts),
-            Field::Rss => self.sizes.rss.format(&opts, &size_opts),
-            Field::Uss => self.sizes.uss.format(&opts, &size_opts),
-            Field::Swap => self.sizes.swap.format(&opts, &size_opts),
-            Field::Cmdline => format!("{:10}", self.cmdline),
+            Field::Pss => self.sizes.pss.format_to(writer, &opts, &size_opts),
+            Field::Rss => self.sizes.rss.format_to(writer, &opts, &size_opts),
+            Field::Uss => self.sizes.uss.format_to(writer, &opts, &size_opts),
+            Field::Swap => self.sizes.swap.format_to(writer, &opts, &size_opts),
+            Field::Cmdline => write!(writer, "{:10}", self.cmdline),
         }
     }
 
@@ -58,11 +65,16 @@ impl ProcessInfo {
 pub struct Size(pub usize);
 
 impl Size {
-    pub fn format(&self, opts: &Options, size_opts: &FileSizeOpts) -> String {
+    pub fn format_to<W: Write>(
+        &self,
+        mut writer: W,
+        opts: &Options,
+        size_opts: &FileSizeOpts,
+    ) -> Result<()> {
         if opts.abbreviate {
-            format!("{:>10}", self.0.file_size(&size_opts).unwrap())
+            write!(writer, "{:>10}", self.0.file_size(&size_opts).unwrap())
         } else {
-            format!("{:10}", self.0)
+            write!(writer, "{:10}", self.0)
         }
     }
 }
@@ -98,12 +110,18 @@ impl ProcessSizes {
         }
     }
 
-    pub fn format_field(&self, field: Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
+    pub fn format_field<W: Write>(
+        &self,
+        writer: W,
+        field: Field,
+        opts: &Options,
+        size_opts: &FileSizeOpts,
+    ) -> Result<()> {
         match field {
-            Field::Pss => self.pss.format(&opts, &size_opts),
-            Field::Rss => self.rss.format(&opts, &size_opts),
-            Field::Uss => self.uss.format(&opts, &size_opts),
-            Field::Swap => self.swap.format(&opts, &size_opts),
+            Field::Pss => self.pss.format_to(writer, &opts, &size_opts),
+            Field::Rss => self.rss.format_to(writer, &opts, &size_opts),
+            Field::Uss => self.uss.format_to(writer, &opts, &size_opts),
+            Field::Swap => self.swap.format_to(writer, &opts, &size_opts),
             _ => panic!(format!("Field not supported for totals: {}", field.name())),
         }
     }
