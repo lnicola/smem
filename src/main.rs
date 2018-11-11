@@ -149,10 +149,10 @@ fn print_processes(options: &Options) -> Result<()> {
         Field::Cmdline,
     ];
 
-    let active_fields = if options.fields.len() > 0 {
-        &options.fields
-    } else {
+    let active_fields = if options.fields.is_empty() {
         &default_fields
+    } else {
+        &options.fields
     };
 
     let mut filters = filter::Filters::new();
@@ -181,13 +181,13 @@ fn print_processes(options: &Options) -> Result<()> {
                 print!("{:>10} ", c.name());
             }
         }
-        println!("");
+        println!();
     }
     let sort_field = options.sort_field.unwrap_or(Field::Rss);
     if options.reverse {
-        processes.sort_by(|p1, p2| p1.cmp_by(&sort_field, p2, &options).reverse());
+        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, &options).reverse());
     } else {
-        processes.sort_by(|p1, p2| p1.cmp_by(&sort_field, p2, &options));
+        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, &options));
     }
     let file_size_opts = FileSizeOpts {
         space: false,
@@ -195,24 +195,24 @@ fn print_processes(options: &Options) -> Result<()> {
     };
     let mut totals = ProcessSizes::new();
     for process in processes {
-        for c in active_fields {
+        for &c in active_fields {
             print!("{} ", &process.format_field(c, &options, &file_size_opts));
         }
-        println!("");
+        println!();
         totals += process.sizes;
     }
     if options.totals {
         println!(
             "--------------------------------------------------------------------------------"
         );
-        for c in active_fields {
+        for &c in active_fields {
             if c.kind(&options) == FieldKind::Size {
                 print!("{} ", totals.format_field(c, &options, &file_size_opts));
             } else {
                 print!("{:10} ", " ");
             }
         }
-        println!("");
+        println!();
     }
     Ok(())
 }
