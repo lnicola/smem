@@ -24,7 +24,7 @@ pub enum FieldKind {
 }
 
 impl Field {
-    pub fn name(&self) -> &str {
+    pub fn name(self) -> &'static str {
         match self {
             Field::Pid => "Pid",
             Field::User => "User",
@@ -36,7 +36,7 @@ impl Field {
         }
     }
 
-    pub fn kind(&self, opts: &Options) -> FieldKind {
+    pub fn kind(self, opts: &Options) -> FieldKind {
         match self {
             Field::Pid => FieldKind::Id,
             Field::Pss | Field::Rss | Field::Uss | Field::Swap => FieldKind::Size,

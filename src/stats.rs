@@ -17,7 +17,7 @@ pub struct ProcessInfo {
 }
 
 impl ProcessInfo {
-    pub fn format_field(&self, field: &Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
+    pub fn format_field(&self, field: Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
         match field {
             Field::Pid => format!("{:10}", self.pid),
             Field::User => {
@@ -35,7 +35,7 @@ impl ProcessInfo {
         }
     }
 
-    pub fn cmp_by(&self, field: &Field, other: &Self, opts: &Options) -> Ordering {
+    pub fn cmp_by(&self, field: Field, other: &Self, opts: &Options) -> Ordering {
         match field {
             Field::Pid => self.pid.cmp(&other.pid),
             Field::User => {
@@ -98,7 +98,7 @@ impl ProcessSizes {
         }
     }
 
-    pub fn format_field(&self, field: &Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
+    pub fn format_field(&self, field: Field, opts: &Options, size_opts: &FileSizeOpts) -> String {
         match field {
             Field::Pss => self.pss.format(&opts, &size_opts),
             Field::Rss => self.rss.format(&opts, &size_opts),
