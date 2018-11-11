@@ -1,22 +1,18 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
-
+use libc;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-
 use regex::Regex;
+use structopt::StructOpt;
 
 use std::fs::{self, DirEntry, File};
-use std::io::{self, BufRead, BufReader};
-
-use structopt::StructOpt;
+use std::io::{BufRead, BufReader, Result};
 
 use self::fields::{Field, FieldKind};
 use self::options::Options;
 use self::stats::{ProcessInfo, ProcessSizes, Size};
 
 mod fields;
-
 mod options;
-
 mod stats;
 
 fn parse_size(s: &str) -> usize {
@@ -47,7 +43,7 @@ fn get_statistics(
     entry: &DirEntry,
     process_filter: &Option<Regex>,
     user_filter: &Option<Regex>,
-) -> Result<Option<ProcessInfo>, io::Error> {
+) -> Result<Option<ProcessInfo>> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -149,7 +145,7 @@ fn get_statistics(
     Ok(Some(statistics))
 }
 
-fn main() {
+fn print_processes(options: &Options) -> Result<()> {
     let default_fields = vec![
         Field::Pid,
         Field::User,
@@ -160,20 +156,11 @@ fn main() {
         Field::Cmdline,
     ];
 
-    let options = Options::from_args();
     let active_fields = if options.fields.len() > 0 {
         &options.fields
     } else {
         &default_fields
     };
-    let mut header = String::new();
-    for c in active_fields {
-        if c.kind(&options) == FieldKind::Text {
-            header.push_str(&format!("{:<10} ", c.name()));
-        } else {
-            header.push_str(&format!("{:>10} ", c.name()));
-        }
-    }
     let process_filter = options
         .process_filter
         .as_ref()
@@ -189,8 +176,16 @@ fn main() {
         .filter_map(|e| get_statistics(e, &process_filter, &user_filter).ok())
         .flatten()
         .collect::<Vec<_>>();
+
     if !options.no_header {
-        println!("{}", header);
+        for c in active_fields {
+            if c.kind(&options) == FieldKind::Text {
+                print!("{:<10} ", c.name());
+            } else {
+                print!("{:>10} ", c.name());
+            }
+        }
+        println!("");
     }
     let sort_field = options.sort_field.unwrap_or(Field::Rss);
     if options.reverse {
@@ -222,5 +217,28 @@ fn main() {
             }
         }
         println!("");
+    }
+    Ok(())
+}
+
+fn run(options: &Options) -> Result<()> {
+    print_processes(&options)
+}
+
+fn disable_sigpipe_handling() {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
+fn main() {
+    disable_sigpipe_handling();
+
+    let options = Options::from_args();
+    match run(&options) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("{}", e);
+        }
     }
 }
