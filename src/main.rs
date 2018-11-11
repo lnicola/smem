@@ -1,17 +1,18 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
 use libc;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use regex::Regex;
 use structopt::StructOpt;
 
 use std::fs::{self, DirEntry, File};
 use std::io::{BufRead, BufReader, Result};
 
 use self::fields::{Field, FieldKind};
+use self::filter::Filters;
 use self::options::Options;
 use self::stats::{ProcessInfo, ProcessSizes, Size};
 
 mod fields;
+mod filter;
 mod options;
 mod stats;
 
@@ -39,11 +40,7 @@ fn get_username(uid: u32) -> String {
     }
 }
 
-fn get_statistics(
-    entry: &DirEntry,
-    process_filter: &Option<Regex>,
-    user_filter: &Option<Regex>,
-) -> Result<Option<ProcessInfo>> {
+fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessInfo>> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -71,10 +68,8 @@ fn get_statistics(
     }
     let username = get_username(uid as u32);
 
-    if let Some(re) = user_filter.as_ref() {
-        if !re.is_match(&username) {
-            return Ok(None);
-        }
+    if !filters.accept_user(&username) {
+        return Ok(None);
     }
 
     let mut command = fs::read(&path.join("comm"))?;
@@ -93,10 +88,8 @@ fn get_statistics(
     cmdline.pop();
     let cmdline = String::from_utf8_lossy(&cmdline).into_owned();
 
-    if let Some(re) = process_filter.as_ref() {
-        if !re.is_match(&command) && !re.is_match(&cmdline) {
-            return Ok(None);
-        }
+    if !filters.accept_process(&command) && !filters.accept_process(&cmdline) {
+        return Ok(None);
     }
 
     let reader = BufReader::new(File::open(&path.join("smaps"))?);
@@ -161,11 +154,14 @@ fn print_processes(options: &Options) -> Result<()> {
     } else {
         &default_fields
     };
-    let process_filter = options
-        .process_filter
-        .as_ref()
-        .map(|r| Regex::new(r).unwrap());
-    let user_filter = options.user_filter.as_ref().map(|r| Regex::new(r).unwrap());
+
+    let mut filters = filter::Filters::new();
+    if let Some(ref process) = options.process_filter {
+        filters.process(process);
+    }
+    if let Some(ref user) = options.user_filter {
+        filters.user(user);
+    }
 
     let entries = fs::read_dir(&options.source)
         .unwrap_or_else(|e| panic!("can't read {}: {}", options.source.display(), e))
@@ -173,7 +169,7 @@ fn print_processes(options: &Options) -> Result<()> {
         .collect::<Vec<_>>();
     let mut processes = entries
         .par_iter()
-        .filter_map(|e| get_statistics(e, &process_filter, &user_filter).ok())
+        .filter_map(|e| get_statistics(e, &filters).ok())
         .flatten()
         .collect::<Vec<_>>();
 
