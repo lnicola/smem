@@ -1,7 +1,7 @@
 [package]
 name = "smem"
 version = "0.1.0"
-authors = ["Laurentiu Nicola <lnicola@dend.ro>"]
+authors = ["Alex Muscar", "Laurențiu Nicola <lnicola@dend.ro>"]
 edition = "2018"
 
 [dependencies]
