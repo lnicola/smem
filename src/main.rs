@@ -1,23 +1,18 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
-
+use libc;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-
 use regex::Regex;
+use structopt::StructOpt;
 
 use std::fs::{self, DirEntry, File};
-use std::io::{self, BufRead, BufReader, ErrorKind, Result, Write};
-use std::process;
-
-use structopt::StructOpt;
+use std::io::{BufRead, BufReader, Result};
 
 use self::fields::{Field, FieldKind};
 use self::options::Options;
 use self::stats::{ProcessInfo, ProcessSizes, Size};
 
 mod fields;
-
 mod options;
-
 mod stats;
 
 fn parse_size(s: &str) -> usize {
@@ -182,18 +177,15 @@ fn print_processes(options: &Options) -> Result<()> {
         .flatten()
         .collect::<Vec<_>>();
 
-    let stdout = io::stdout();
-    let mut stdout = stdout.lock();
-
     if !options.no_header {
         for c in active_fields {
             if c.kind(&options) == FieldKind::Text {
-                write!(stdout, "{:<10} ", c.name())?;
+                print!("{:<10} ", c.name());
             } else {
-                write!(stdout, "{:>10} ", c.name())?;
+                print!("{:>10} ", c.name());
             }
         }
-        writeln!(stdout, "")?;
+        println!("");
     }
     let sort_field = options.sort_field.unwrap_or(Field::Rss);
     if options.reverse {
@@ -208,32 +200,23 @@ fn print_processes(options: &Options) -> Result<()> {
     let mut totals = ProcessSizes::new();
     for process in processes {
         for c in active_fields {
-            write!(
-                stdout,
-                "{} ",
-                &process.format_field(c, &options, &file_size_opts)
-            )?;
+            print!("{} ", &process.format_field(c, &options, &file_size_opts));
         }
-        writeln!(stdout, "")?;
+        println!("");
         totals += process.sizes;
     }
     if options.totals {
-        writeln!(
-            stdout,
+        println!(
             "--------------------------------------------------------------------------------"
-        )?;
+        );
         for c in active_fields {
             if c.kind(&options) == FieldKind::Size {
-                write!(
-                    stdout,
-                    "{} ",
-                    totals.format_field(c, &options, &file_size_opts)
-                )?;
+                print!("{} ", totals.format_field(c, &options, &file_size_opts));
             } else {
-                write!(stdout, "{:10} ", " ")?;
+                print!("{:10} ", " ");
             }
         }
-        writeln!(stdout, "")?;
+        println!("");
     }
     Ok(())
 }
@@ -242,13 +225,18 @@ fn run(options: &Options) -> Result<()> {
     print_processes(&options)
 }
 
+fn disable_sigpipe_handling() {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
 fn main() {
+    disable_sigpipe_handling();
+
     let options = Options::from_args();
     match run(&options) {
         Ok(_) => {}
-        Err(ref e) if e.kind() == ErrorKind::BrokenPipe => {
-            process::exit(141);
-        }
         Err(e) => {
             eprintln!("{}", e);
         }
