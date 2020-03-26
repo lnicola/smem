@@ -9,7 +9,7 @@ use super::fields::Field;
 use super::options::Options;
 
 pub struct ProcessInfo {
-    pub pid: u16,
+    pub pid: u32,
     pub uid: i32,
     pub username: String,
     pub command: String,

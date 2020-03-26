@@ -50,7 +50,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
     let pid = if let Some(pid) = path
         .file_name()
         .and_then(|dir_name| dir_name.to_str())
-        .and_then(|pid| pid.parse::<u16>().ok())
+        .and_then(|pid| pid.parse().ok())
     {
         pid
     } else {
