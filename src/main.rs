@@ -129,10 +129,10 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
         command,
         cmdline,
         sizes: ProcessSizes {
-            pss: Size(pss),
-            rss: Size(rss),
-            uss: Size(uss),
-            swap: Size(swap),
+            pss: Size(pss * 1024),
+            rss: Size(rss * 1024),
+            uss: Size(uss * 1024),
+            swap: Size(swap * 1024),
         },
     };
     Ok(Some(statistics))
