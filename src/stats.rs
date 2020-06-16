@@ -2,6 +2,7 @@ use humansize::file_size_opts::FileSizeOpts;
 use humansize::FileSize;
 
 use std::cmp::Ordering;
+use std::ffi::OsString;
 use std::io::{Result, Write};
 use std::ops::{Add, AddAssign};
 
@@ -11,9 +12,9 @@ use super::options::Options;
 pub struct ProcessInfo {
     pub pid: u32,
     pub uid: i32,
-    pub username: String,
-    pub command: String,
-    pub cmdline: String,
+    pub username: OsString,
+    pub command: OsString,
+    pub cmdline: OsString,
     pub sizes: ProcessSizes,
 }
 
@@ -31,14 +32,14 @@ impl ProcessInfo {
                 if opts.numeric {
                     write!(writer, "{:10}", self.uid)
                 } else {
-                    write!(writer, "{:10}", self.username)
+                    write!(writer, "{:10}", self.username.to_string_lossy())
                 }
             }
             Field::Pss => self.sizes.pss.format_to(writer, &opts, &size_opts),
             Field::Rss => self.sizes.rss.format_to(writer, &opts, &size_opts),
             Field::Uss => self.sizes.uss.format_to(writer, &opts, &size_opts),
             Field::Swap => self.sizes.swap.format_to(writer, &opts, &size_opts),
-            Field::Cmdline => write!(writer, "{:10}", self.cmdline),
+            Field::Cmdline => write!(writer, "{:10}", self.cmdline.to_string_lossy()),
         }
     }
 

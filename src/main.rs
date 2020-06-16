@@ -1,16 +1,20 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
 use libc;
+use os_str_bytes::OsStringBytes;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
+use std::ffi::OsString;
 use std::fs::{self, DirEntry, File};
-use std::io::{self, BufRead, BufReader, Result};
+use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 
+use self::error::Error;
 use self::fields::{Field, FieldKind};
 use self::filter::Filters;
 use self::options::Options;
 use self::stats::{ProcessInfo, ProcessSizes, Size};
 
+mod error;
 mod fields;
 mod filter;
 mod options;
@@ -32,10 +36,10 @@ fn parse_uid(s: &str) -> i32 {
         .unwrap_or(-1)
 }
 
-fn get_username(uid: u32) -> String {
+fn get_username(uid: u32) -> OsString {
     match users::get_user_by_uid(uid) {
-        Some(user) => user.name().to_string_lossy().into_owned(),
-        None => String::new(),
+        Some(user) => user.name().to_os_string(),
+        None => OsString::new(),
     }
 }
 
@@ -47,7 +51,7 @@ fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
     Ok(BufReader::new(file))
 }
 
-fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessInfo>> {
+fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessInfo>, Error> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -82,7 +86,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
 
     let mut command = fs::read(&path.join("comm"))?;
     command.pop();
-    let command = String::from_utf8_lossy(&command).into_owned();
+    let command = OsString::from_bytes(&command)?;
 
     let mut cmdline = fs::read(&path.join("cmdline"))?;
     for c in &mut cmdline {
@@ -94,7 +98,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
         return Ok(None);
     }
     cmdline.pop();
-    let cmdline = String::from_utf8_lossy(&cmdline).into_owned();
+    let cmdline = OsString::from_bytes(&cmdline)?;
 
     if !filters.accept_process(&command) && !filters.accept_process(&cmdline) {
         return Ok(None);
@@ -141,7 +145,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
     Ok(Some(statistics))
 }
 
-fn print_processes(options: &Options) -> Result<()> {
+fn print_processes(options: &Options) -> Result<(), Error> {
     let default_fields = vec![
         Field::Pid,
         Field::User,
@@ -226,7 +230,7 @@ fn print_processes(options: &Options) -> Result<()> {
     Ok(())
 }
 
-fn run(options: &Options) -> Result<()> {
+fn run(options: &Options) -> Result<(), Error> {
     print_processes(&options)
 }
 

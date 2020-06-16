@@ -1,4 +1,7 @@
-use regex::Regex;
+use os_str_bytes::OsStrBytes;
+use regex::bytes::Regex;
+
+use std::ffi::OsStr;
 
 pub struct Filters {
     process_filter: Option<Regex>,
@@ -23,17 +26,17 @@ impl Filters {
         self
     }
 
-    pub fn accept_process(&self, s: &str) -> bool {
+    pub fn accept_process(&self, s: &OsStr) -> bool {
         self.process_filter
             .as_ref()
-            .map(|re| re.is_match(s))
+            .map(|re| re.is_match(&s.to_bytes()))
             .unwrap_or(true)
     }
 
-    pub fn accept_user(&self, s: &str) -> bool {
+    pub fn accept_user(&self, s: &OsStr) -> bool {
         self.user_filter
             .as_ref()
-            .map(|re| re.is_match(s))
+            .map(|re| re.is_match(&s.to_bytes()))
             .unwrap_or(true)
     }
 }
