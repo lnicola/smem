@@ -24,7 +24,6 @@ fn parse_size(s: &str) -> usize {
 }
 
 fn parse_uid(s: &str) -> i32 {
-    assert!(s.starts_with("Uid:"));
     s[4..]
         .split_whitespace()
         .next()
