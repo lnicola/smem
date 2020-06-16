@@ -1,4 +1,4 @@
-use clap::{crate_description, crate_name, App, Arg};
+use clap::{App, Arg};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -17,76 +17,76 @@ pub struct Options {
 
 impl Options {
     pub fn from_args() -> Options {
-        let matches = App::new(crate_name!())
-            .about(crate_description!())
+        let matches = App::new(env!("CARGO_PKG_NAME"))
+            .about(env!("CARGO_PKG_DESCRIPTION"))
             .arg(
                 Arg::with_name("no-header")
-                    .short("H")
+                    .short('H')
                     .long("no-header")
-                    .help("Disable the header line"),
+                    .about("Disable the header line"),
             )
             .arg(
                 Arg::with_name("process-filter")
-                    .short("P")
+                    .short('P')
                     .long("processfilter")
-                    .help("Process filter")
+                    .about("Process filter")
                     .takes_value(true),
             )
             .arg(
                 Arg::with_name("user-filter")
-                    .short("U")
+                    .short('U')
                     .long("userfilter")
-                    .help("User filter")
+                    .about("User filter")
                     .takes_value(true),
             )
             .arg(
                 Arg::with_name("numeric")
-                    .short("n")
+                    .short('n')
                     .long("numeric")
-                    .help("Numeric output"),
+                    .about("Numeric output"),
             )
             .arg(
                 Arg::with_name("reverse")
-                    .short("r")
+                    .short('r')
                     .long("reverse")
-                    .help("Reverse sort"),
+                    .about("Reverse sort"),
             )
             .arg(
                 Arg::with_name("abbreviate")
-                    .short("k")
+                    .short('k')
                     .long("abbreviate")
-                    .help("Show human-readable sizes"),
+                    .about("Show human-readable sizes"),
             )
             .arg(
                 Arg::with_name("source")
-                    .short("S")
+                    .short('S')
                     .long("source")
-                    .help("The path to /proc (the data source)")
+                    .about("The path to /proc (the data source)")
                     .takes_value(true)
                     .default_value("/proc"),
             )
             .arg(
                 Arg::with_name("fields")
-                    .short("c")
+                    .short('c')
                     .long("columns")
-                    .help("Columns to show")
+                    .about("Columns to show")
                     .takes_value(true)
                     .multiple(true)
-                    .validator(|s| super::fields::Field::from_str(&s).map(|_| ())),
+                    .validator(|s| super::fields::Field::from_str(s)),
             )
             .arg(
                 Arg::with_name("sort-field")
-                    .short("s")
+                    .short('s')
                     .long("sort")
-                    .help("Column to sort on")
+                    .about("Column to sort on")
                     .takes_value(true)
-                    .validator(|s| super::fields::Field::from_str(&s).map(|_| ())),
+                    .validator(|s| super::fields::Field::from_str(s)),
             )
             .arg(
                 Arg::with_name("totals")
-                    .short("t")
+                    .short('t')
                     .long("totals")
-                    .help("Show totals"),
+                    .about("Show totals"),
             )
             .get_matches();
         Options {
