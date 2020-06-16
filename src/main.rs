@@ -65,14 +65,15 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
         return Ok(None);
     };
 
+    let mut line = String::new();
     let mut uid = 0;
-    let reader = BufReader::new(File::open(&path.join("status"))?);
-    for line in reader.lines() {
-        let line = line?;
+    let mut reader = BufReader::new(File::open(&path.join("status"))?);
+    while reader.read_line(&mut line).unwrap_or_default() > 0 {
         if line.starts_with("Uid:") {
             uid = parse_uid(&line);
             break;
         }
+        line.clear();
     }
     let username = get_username(uid as u32);
 
@@ -100,7 +101,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
         return Ok(None);
     }
 
-    let reader = open_smaps(&path)?;
+    let mut reader = open_smaps(&path)?;
 
     let mut pss = 0;
     let mut rss = 0;
@@ -108,9 +109,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
     let mut private_dirty = 0;
     let mut swap = 0;
 
-    for line in reader.lines() {
-        let line = line?;
-
+    while reader.read_line(&mut line).unwrap_or_default() > 0 {
         let field;
         if line.starts_with("Pss:") {
             field = &mut pss;
@@ -126,7 +125,8 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
             continue;
         }
 
-        *field += parse_size(&line)
+        *field += parse_size(&line);
+        line.clear();
     }
 
     let uss = private_clean + private_dirty;
