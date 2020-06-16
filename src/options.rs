@@ -1,32 +1,112 @@
+use clap::{crate_description, crate_name, App, Arg};
 use std::path::PathBuf;
-use structopt::StructOpt;
+use std::str::FromStr;
 
-#[derive(StructOpt)]
 pub struct Options {
-    #[structopt(short = "H", long = "no-header", help = "Disable the header line")]
     pub no_header: bool,
-    #[structopt(short = "P", long = "processfilter", help = "Process filter")]
     pub process_filter: Option<String>,
-    #[structopt(short = "U", long = "userfilter", help = "User filter")]
     pub user_filter: Option<String>,
-    #[structopt(short = "n", long = "numeric", help = "Numeric output")]
     pub numeric: bool,
-    #[structopt(short = "r", long = "reverse", help = "Reverse sort")]
     pub reverse: bool,
-    #[structopt(short = "k", long = "abbreviate", help = "Show human-readable sizes")]
     pub abbreviate: bool,
-    #[structopt(
-        short = "S",
-        long = "source",
-        help = "The path to /proc (the data source)",
-        default_value = "/proc",
-        parse(from_os_str)
-    )]
     pub source: PathBuf,
-    #[structopt(short = "c", long = "columns", help = "Columns to show")]
     pub fields: Vec<super::fields::Field>,
-    #[structopt(short = "s", long = "sort", help = "Column to sort on")]
     pub sort_field: Option<super::fields::Field>,
-    #[structopt(short = "t", long = "totals", help = "Show totals")]
     pub totals: bool,
+}
+
+impl Options {
+    pub fn from_args() -> Options {
+        let matches = App::new(crate_name!())
+            .about(crate_description!())
+            .arg(
+                Arg::with_name("no-header")
+                    .short("H")
+                    .long("no-header")
+                    .help("Disable the header line"),
+            )
+            .arg(
+                Arg::with_name("process-filter")
+                    .short("P")
+                    .long("processfilter")
+                    .help("Process filter")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("user-filter")
+                    .short("U")
+                    .long("userfilter")
+                    .help("User filter")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("numeric")
+                    .short("n")
+                    .long("numeric")
+                    .help("Numeric output"),
+            )
+            .arg(
+                Arg::with_name("reverse")
+                    .short("r")
+                    .long("reverse")
+                    .help("Reverse sort"),
+            )
+            .arg(
+                Arg::with_name("abbreviate")
+                    .short("k")
+                    .long("abbreviate")
+                    .help("Show human-readable sizes"),
+            )
+            .arg(
+                Arg::with_name("source")
+                    .short("S")
+                    .long("source")
+                    .help("The path to /proc (the data source)")
+                    .takes_value(true)
+                    .default_value("/proc"),
+            )
+            .arg(
+                Arg::with_name("fields")
+                    .short("c")
+                    .long("columns")
+                    .help("Columns to show")
+                    .takes_value(true)
+                    .multiple(true)
+                    .validator(|s| super::fields::Field::from_str(&s).map(|_| ())),
+            )
+            .arg(
+                Arg::with_name("sort-field")
+                    .short("s")
+                    .long("sort")
+                    .help("Column to sort on")
+                    .takes_value(true)
+                    .validator(|s| super::fields::Field::from_str(&s).map(|_| ())),
+            )
+            .arg(
+                Arg::with_name("totals")
+                    .short("t")
+                    .long("totals")
+                    .help("Show totals"),
+            )
+            .get_matches();
+        Options {
+            no_header: matches.is_present("no-header"),
+            process_filter: matches.value_of("process-filter").map(|s| s.to_string()),
+            user_filter: matches.value_of("user-filter").map(|s| s.to_string()),
+            numeric: matches.is_present("numeric"),
+            reverse: matches.is_present("reverse"),
+            abbreviate: matches.is_present("abbreviate"),
+            source: matches
+                .value_of_os("source")
+                .map(|s| PathBuf::from(s))
+                .unwrap(),
+            fields: matches.values_of("fields").map_or_else(Vec::new, |v| {
+                v.map(|s| FromStr::from_str(s).unwrap()).collect()
+            }),
+            sort_field: matches
+                .value_of("sort-field")
+                .map(|s| FromStr::from_str(s).unwrap()),
+            totals: matches.is_present("totals"),
+        }
+    }
 }
