@@ -4,6 +4,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader, Result};
+use std::path::Path;
 
 use self::fields::{Field, FieldKind};
 use self::filter::Filters;
@@ -37,6 +38,14 @@ fn get_username(uid: u32) -> String {
         Some(user) => user.name().to_string_lossy().into_owned(),
         None => String::new(),
     }
+}
+
+fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
+    let file = match File::open(&path.join("smaps_rollup")) {
+        Ok(file) => file,
+        Err(_) => File::open(&path.join("smaps"))?,
+    };
+    Ok(BufReader::new(file))
 }
 
 fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessInfo>> {
@@ -91,7 +100,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
         return Ok(None);
     }
 
-    let reader = BufReader::new(File::open(&path.join("smaps"))?);
+    let reader = open_smaps(&path)?;
 
     let mut pss = 0;
     let mut rss = 0;
