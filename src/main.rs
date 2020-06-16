@@ -1,7 +1,6 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
 use libc;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use structopt::StructOpt;
 
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader, Result};
