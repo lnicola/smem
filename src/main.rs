@@ -17,7 +17,7 @@ mod options;
 mod stats;
 
 fn parse_size(s: &str) -> usize {
-    let s = &s[..s.len() - 3];
+    let s = &s[..s.len() - 4];
     let pos = s.rfind(' ').unwrap();
     let s = &s[pos + 1..];
     s.parse().unwrap_or_default()
@@ -110,22 +110,18 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
     let mut swap = 0;
 
     while reader.read_line(&mut line).unwrap_or_default() > 0 {
-        let field;
         if line.starts_with("Pss:") {
-            field = &mut pss;
+            pss += parse_size(&line);
         } else if line.starts_with("Rss:") {
-            field = &mut rss;
+            rss += parse_size(&line);
         } else if line.starts_with("Private_Clean:") {
-            field = &mut private_clean;
+            private_clean += parse_size(&line);
         } else if line.starts_with("Private_Dirty:") {
-            field = &mut private_dirty;
+            private_dirty += parse_size(&line);
         } else if line.starts_with("Swap:") {
-            field = &mut swap;
-        } else {
-            continue;
+            swap += parse_size(&line);
         }
 
-        *field += parse_size(&line);
         line.clear();
     }
 
