@@ -1,8 +1,9 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
-use libc;
+use libc::{self, uid_t};
 use os_str_bytes::OsStringBytes;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::{self, DirEntry, File};
 use std::io::{self, BufRead, BufReader};
@@ -27,20 +28,13 @@ fn parse_size(s: &str) -> usize {
     s.parse().unwrap_or_default()
 }
 
-fn parse_uid(s: &str) -> i32 {
+fn parse_uid(s: &str) -> uid_t {
     s[4..]
         .split_whitespace()
         .next()
         .unwrap()
         .parse()
-        .unwrap_or(-1)
-}
-
-fn get_username(uid: u32) -> OsString {
-    match users::get_user_by_uid(uid) {
-        Some(user) => user.name().to_os_string(),
-        None => OsString::new(),
-    }
+        .unwrap_or_default()
 }
 
 fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
@@ -51,7 +45,11 @@ fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
     Ok(BufReader::new(file))
 }
 
-fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessInfo>, Error> {
+fn get_statistics(
+    entry: &DirEntry,
+    filters: &Filters,
+    users: &HashMap<uid_t, OsString>,
+) -> Result<Option<ProcessInfo>, Error> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
         return Ok(None);
@@ -78,7 +76,7 @@ fn get_statistics(entry: &DirEntry, filters: &Filters) -> Result<Option<ProcessI
         }
         line.clear();
     }
-    let username = get_username(uid as u32);
+    let username = users.get(&uid).cloned().unwrap_or_else(OsString::new);
 
     if !filters.accept_user(&username) {
         return Ok(None);
@@ -170,13 +168,16 @@ fn print_processes(options: &Options) -> Result<(), Error> {
         filters.user(user);
     }
 
+    let users = unsafe { users::all_users() }
+        .map(|u| (u.uid(), u.name().to_os_string()))
+        .collect();
     let entries = fs::read_dir(&options.source)
         .unwrap_or_else(|e| panic!("can't read {}: {}", options.source.display(), e))
         .filter_map(|e| e.ok())
         .collect::<Vec<_>>();
     let mut processes = entries
         .par_iter()
-        .filter_map(|e| get_statistics(e, &filters).ok())
+        .filter_map(|e| get_statistics(e, &filters, &users).ok())
         .flatten()
         .collect::<Vec<_>>();
 

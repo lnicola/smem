@@ -1,5 +1,6 @@
 use humansize::file_size_opts::FileSizeOpts;
 use humansize::FileSize;
+use libc::{pid_t, uid_t};
 
 use std::cmp::Ordering;
 use std::ffi::OsString;
@@ -10,8 +11,8 @@ use super::fields::Field;
 use super::options::Options;
 
 pub struct ProcessInfo {
-    pub pid: u32,
-    pub uid: i32,
+    pub pid: pid_t,
+    pub uid: uid_t,
     pub username: OsString,
     pub command: OsString,
     pub cmdline: OsString,
