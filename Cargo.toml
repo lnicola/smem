@@ -11,4 +11,4 @@ libc = "0.2"
 os_str_bytes = "2.3"
 rayon = "1.3"
 regex = { version = "1.3", default-features = false, features = ["std", "perf"] }
-users = { version = "0.10", default-features = false, features = ["cache"] }
+users = { version = "0.10", default-features = false }
