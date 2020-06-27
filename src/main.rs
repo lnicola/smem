@@ -21,6 +21,11 @@ mod filter;
 mod options;
 mod stats;
 
+enum UserEntry {
+    User(OsString),
+    FilteredOut,
+}
+
 fn parse_size(s: &str) -> usize {
     let s = &s[..s.len() - 4];
     let pos = s.rfind(' ').unwrap();
@@ -37,6 +42,19 @@ fn parse_uid(s: &str) -> uid_t {
         .unwrap_or_default()
 }
 
+fn build_user_map(filters: &Filters) -> HashMap<uid_t, UserEntry> {
+    unsafe { users::all_users() }
+        .map(|u| {
+            let entry = if filters.accept_user(&u.name()) {
+                UserEntry::User(u.name().to_os_string())
+            } else {
+                UserEntry::FilteredOut
+            };
+            (u.uid(), entry)
+        })
+        .collect()
+}
+
 fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
     let file = match File::open(&path.join("smaps_rollup")) {
         Ok(file) => file,
@@ -48,7 +66,7 @@ fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
 fn get_statistics(
     entry: &DirEntry,
     filters: &Filters,
-    users: &HashMap<uid_t, OsString>,
+    users: &HashMap<uid_t, UserEntry>,
 ) -> Result<Option<ProcessInfo>, Error> {
     let metadata = entry.metadata()?;
     if !metadata.is_dir() {
@@ -76,11 +94,11 @@ fn get_statistics(
         }
         line.clear();
     }
-    let username = users.get(&uid).cloned().unwrap_or_else(OsString::new);
-
-    if !filters.accept_user(&username) {
-        return Ok(None);
-    }
+    let username = match users.get(&uid) {
+        Some(UserEntry::User(name)) => name.clone(),
+        Some(UserEntry::FilteredOut) => return Ok(None),
+        None => OsString::new(),
+    };
 
     let mut command = fs::read(&path.join("comm"))?;
     command.pop();
@@ -168,9 +186,7 @@ fn print_processes(options: &Options) -> Result<(), Error> {
         filters.user(user);
     }
 
-    let users = unsafe { users::all_users() }
-        .map(|u| (u.uid(), u.name().to_os_string()))
-        .collect();
+    let users = build_user_map(&filters);
     let entries = fs::read_dir(&options.source)
         .unwrap_or_else(|e| panic!("can't read {}: {}", options.source.display(), e))
         .filter_map(|e| e.ok())
