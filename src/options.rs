@@ -20,45 +20,45 @@ impl Options {
         let matches = App::new(env!("CARGO_PKG_NAME"))
             .about(env!("CARGO_PKG_DESCRIPTION"))
             .arg(
-                Arg::with_name("no-header")
+                Arg::new("no-header")
                     .short('H')
                     .long("no-header")
                     .about("Disable the header line"),
             )
             .arg(
-                Arg::with_name("process-filter")
+                Arg::new("process-filter")
                     .short('P')
                     .long("processfilter")
                     .about("Process filter")
                     .takes_value(true),
             )
             .arg(
-                Arg::with_name("user-filter")
+                Arg::new("user-filter")
                     .short('U')
                     .long("userfilter")
                     .about("User filter")
                     .takes_value(true),
             )
             .arg(
-                Arg::with_name("numeric")
+                Arg::new("numeric")
                     .short('n')
                     .long("numeric")
                     .about("Numeric output"),
             )
             .arg(
-                Arg::with_name("reverse")
+                Arg::new("reverse")
                     .short('r')
                     .long("reverse")
                     .about("Reverse sort"),
             )
             .arg(
-                Arg::with_name("abbreviate")
+                Arg::new("abbreviate")
                     .short('k')
                     .long("abbreviate")
                     .about("Show human-readable sizes"),
             )
             .arg(
-                Arg::with_name("source")
+                Arg::new("source")
                     .short('S')
                     .long("source")
                     .about("The path to /proc (the data source)")
@@ -66,7 +66,7 @@ impl Options {
                     .default_value("/proc"),
             )
             .arg(
-                Arg::with_name("fields")
+                Arg::new("fields")
                     .short('c')
                     .long("columns")
                     .about("Columns to show")
@@ -75,7 +75,7 @@ impl Options {
                     .validator(|s| super::fields::Field::from_str(s)),
             )
             .arg(
-                Arg::with_name("sort-field")
+                Arg::new("sort-field")
                     .short('s')
                     .long("sort")
                     .about("Column to sort on")
@@ -83,7 +83,7 @@ impl Options {
                     .validator(|s| super::fields::Field::from_str(s)),
             )
             .arg(
-                Arg::with_name("totals")
+                Arg::new("totals")
                     .short('t')
                     .long("totals")
                     .about("Show totals"),
