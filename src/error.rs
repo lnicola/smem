@@ -2,6 +2,7 @@
 pub enum Error {
     Io(std::io::Error),
     Encoding(os_str_bytes::EncodingError),
+    Processing(String),
 }
 
 impl std::error::Error for Error {
@@ -9,6 +10,7 @@ impl std::error::Error for Error {
         match self {
             Error::Io(e) => Some(e),
             Error::Encoding(e) => Some(e),
+            Error::Processing(_) => Some(self),
         }
     }
 }
@@ -18,6 +20,7 @@ impl std::fmt::Display for Error {
         match self {
             Error::Io(e) => e.fmt(f),
             Error::Encoding(e) => e.fmt(f),
+            Error::Processing(_) => self.fmt(f),
         }
     }
 }
