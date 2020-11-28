@@ -1,11 +1,11 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
-use libc::{self, uid_t};
+use libc::{self, pid_t, uid_t};
 use os_str_bytes::OsStringBytes;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::fs::{self, DirEntry, File};
+use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 
@@ -13,7 +13,7 @@ use self::error::Error;
 use self::fields::{Field, FieldKind};
 use self::filter::Filters;
 use self::options::Options;
-use self::stats::{ProcessInfo, ProcessSizes, Size};
+use self::stats::{ProcessInfo, ProcessSizes, Size, User};
 
 mod error;
 mod fields;
@@ -24,6 +24,19 @@ mod stats;
 enum UserEntry {
     User(OsString),
     FilteredOut,
+}
+
+fn build_user_map(filters: &Filters) -> HashMap<uid_t, UserEntry> {
+    unsafe { users::all_users() }
+        .map(|u| {
+            let entry = if filters.accept_user(u.name()) {
+                UserEntry::User(u.name().to_os_string())
+            } else {
+                UserEntry::FilteredOut
+            };
+            (u.uid(), entry)
+        })
+        .collect()
 }
 
 fn parse_size(s: &str) -> usize {
@@ -42,17 +55,44 @@ fn parse_uid(s: &str) -> uid_t {
         .unwrap_or_default()
 }
 
-fn build_user_map(filters: &Filters) -> HashMap<uid_t, UserEntry> {
-    unsafe { users::all_users() }
-        .map(|u| {
-            let entry = if filters.accept_user(u.name()) {
-                UserEntry::User(u.name().to_os_string())
-            } else {
-                UserEntry::FilteredOut
-            };
-            (u.uid(), entry)
-        })
-        .collect()
+fn get_process_uid(path: &Path) -> Result<uid_t, Error> {
+    let mut line = String::new();
+    let mut reader = BufReader::new(File::open(&path.join("status"))?);
+    while reader.read_line(&mut line).unwrap_or_default() > 0 {
+        if line.starts_with("Uid:") {
+            return Ok(parse_uid(&line));
+        }
+        line.clear();
+    }
+    Err(Error::Processing(format!(
+        "Could not find process entry for path: `{:?}'",
+        path
+    )))
+}
+
+fn get_pid(path: &Path) -> Option<pid_t> {
+    path.file_name()
+        .and_then(|dir_name| dir_name.to_str())
+        .and_then(|pid| pid.parse().ok())
+}
+
+fn get_process_command(path: &Path) -> Result<OsString, Error> {
+    let mut command = fs::read(&path.join("comm"))?;
+    command.pop();
+    Ok(OsString::from_raw_vec(command)?)
+}
+
+fn get_cmdline(path: &Path) -> Result<OsString, Error> {
+    let mut cmdline = fs::read(&path.join("cmdline"))?;
+    for c in &mut cmdline {
+        if *c == b'\0' {
+            *c = b' ';
+        }
+    }
+    if !cmdline.is_empty() {
+        cmdline.pop();
+    }
+    Ok(OsString::from_raw_vec(cmdline)?)
 }
 
 fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
@@ -63,65 +103,9 @@ fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
     Ok(BufReader::new(file))
 }
 
-fn get_statistics(
-    entry: &DirEntry,
-    filters: &Filters,
-    users: &HashMap<uid_t, UserEntry>,
-) -> Result<Option<ProcessInfo>, Error> {
-    let metadata = entry.metadata()?;
-    if !metadata.is_dir() {
-        return Ok(None);
-    }
-    let path = entry.path();
-
-    let pid = if let Some(pid) = path
-        .file_name()
-        .and_then(|dir_name| dir_name.to_str())
-        .and_then(|pid| pid.parse().ok())
-    {
-        pid
-    } else {
-        return Ok(None);
-    };
-
+fn get_memory_info(path: &Path) -> Result<ProcessSizes, Error> {
+    let mut reader = open_smaps(path)?;
     let mut line = String::new();
-    let mut uid = 0;
-    let mut reader = BufReader::new(File::open(&path.join("status"))?);
-    while reader.read_line(&mut line).unwrap_or_default() > 0 {
-        if line.starts_with("Uid:") {
-            uid = parse_uid(&line);
-            break;
-        }
-        line.clear();
-    }
-    let username = match users.get(&uid) {
-        Some(UserEntry::User(name)) => name.clone(),
-        Some(UserEntry::FilteredOut) => return Ok(None),
-        None => OsString::new(),
-    };
-
-    let mut command = fs::read(&path.join("comm"))?;
-    command.pop();
-    let command = OsString::from_raw_vec(command)?;
-
-    let mut cmdline = fs::read(&path.join("cmdline"))?;
-    for c in &mut cmdline {
-        if *c == b'\0' {
-            *c = b' ';
-        }
-    }
-    if cmdline.is_empty() {
-        return Ok(None);
-    }
-    cmdline.pop();
-    let cmdline = OsString::from_raw_vec(cmdline)?;
-
-    if !filters.accept_process(&command) && !filters.accept_process(&cmdline) {
-        return Ok(None);
-    }
-
-    let mut reader = open_smaps(&path)?;
-
     let mut pss = 0;
     let mut rss = 0;
     let mut private_clean = 0;
@@ -145,18 +129,43 @@ fn get_statistics(
     }
 
     let uss = private_clean + private_dirty;
+    Ok(ProcessSizes {
+        pss: Size(pss * 1024),
+        rss: Size(rss * 1024),
+        uss: Size(uss * 1024),
+        swap: Size(swap * 1024),
+    })
+}
+
+fn get_process_info(
+    path: &Path,
+    filters: &Filters,
+    users: &HashMap<uid_t, UserEntry>,
+) -> Result<Option<ProcessInfo>, Error> {
+    let pid = match get_pid(path) {
+        Some(pid) => pid,
+        None => return Ok(None),
+    };
+    let uid = get_process_uid(path)?;
+    let username = match users.get(&uid) {
+        Some(UserEntry::User(name)) => name.clone(),
+        Some(UserEntry::FilteredOut) => return Ok(None),
+        None => OsString::new(),
+    };
+    let command = get_process_command(path)?;
+    let cmdline = get_cmdline(path)?;
+    if cmdline.is_empty() || !filters.accept_process(&command) && !filters.accept_process(&cmdline)
+    {
+        return Ok(None);
+    }
+
+    let sizes = get_memory_info(path)?;
     let statistics = ProcessInfo {
         pid,
-        uid,
-        username,
+        user: User::new(uid, username),
         command,
         cmdline,
-        sizes: ProcessSizes {
-            pss: Size(pss * 1024),
-            rss: Size(rss * 1024),
-            uss: Size(uss * 1024),
-            swap: Size(swap * 1024),
-        },
+        sizes,
     };
     Ok(Some(statistics))
 }
@@ -193,7 +202,10 @@ fn print_processes(options: &Options) -> Result<(), Error> {
         .collect::<Vec<_>>();
     let mut processes = entries
         .par_iter()
-        .filter_map(|e| get_statistics(e, &filters, &users).ok())
+        .filter_map(|e| match e.metadata() {
+            Ok(m) if m.is_dir() => get_process_info(&e.path(), &filters, &users).ok(),
+            _ => None,
+        })
         .flatten()
         .collect::<Vec<_>>();
 

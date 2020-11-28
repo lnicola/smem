@@ -10,10 +10,20 @@ use std::ops::{Add, AddAssign};
 use super::fields::Field;
 use super::options::Options;
 
+pub struct User {
+    pub uid: uid_t,
+    pub name: OsString,
+}
+
+impl User {
+    pub fn new(uid: uid_t, name: OsString) -> Self {
+        Self { uid, name }
+    }
+}
+
 pub struct ProcessInfo {
     pub pid: pid_t,
-    pub uid: uid_t,
-    pub username: OsString,
+    pub user: User,
     pub command: OsString,
     pub cmdline: OsString,
     pub sizes: ProcessSizes,
@@ -31,9 +41,9 @@ impl ProcessInfo {
             Field::Pid => write!(writer, "{:10}", self.pid),
             Field::User => {
                 if opts.numeric {
-                    write!(writer, "{:10}", self.uid)
+                    write!(writer, "{:10}", self.user.uid)
                 } else {
-                    write!(writer, "{:10}", self.username.to_string_lossy())
+                    write!(writer, "{:10}", self.user.name.to_string_lossy())
                 }
             }
             Field::Pss => self.sizes.pss.format_to(writer, opts, size_opts),
@@ -49,9 +59,9 @@ impl ProcessInfo {
             Field::Pid => self.pid.cmp(&other.pid),
             Field::User => {
                 if opts.numeric {
-                    self.uid.cmp(&other.uid)
+                    self.user.uid.cmp(&other.user.uid)
                 } else {
-                    self.username.cmp(&other.username)
+                    self.user.name.cmp(&other.user.name)
                 }
             }
             Field::Pss => self.sizes.pss.cmp(&other.sizes.pss),
