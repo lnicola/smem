@@ -124,7 +124,7 @@ impl ProcessSizes {
             Field::Rss => self.rss.format_to(writer, &opts, &size_opts),
             Field::Uss => self.uss.format_to(writer, &opts, &size_opts),
             Field::Swap => self.swap.format_to(writer, &opts, &size_opts),
-            _ => panic!(format!("Field not supported for totals: {}", field.name())),
+            _ => panic!("Field not supported for totals: {}", field.name()),
         }
     }
 }

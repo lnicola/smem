@@ -102,7 +102,7 @@ fn get_statistics(
 
     let mut command = fs::read(&path.join("comm"))?;
     command.pop();
-    let command = OsString::from_bytes(&command)?;
+    let command = OsString::from_raw_vec(command)?;
 
     let mut cmdline = fs::read(&path.join("cmdline"))?;
     for c in &mut cmdline {
@@ -114,7 +114,7 @@ fn get_statistics(
         return Ok(None);
     }
     cmdline.pop();
-    let cmdline = OsString::from_bytes(&cmdline)?;
+    let cmdline = OsString::from_raw_vec(cmdline)?;
 
     if !filters.accept_process(&command) && !filters.accept_process(&cmdline) {
         return Ok(None);

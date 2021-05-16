@@ -96,10 +96,7 @@ impl Options {
             numeric: matches.is_present("numeric"),
             reverse: matches.is_present("reverse"),
             abbreviate: matches.is_present("abbreviate"),
-            source: matches
-                .value_of_os("source")
-                .map(|s| PathBuf::from(s))
-                .unwrap(),
+            source: matches.value_of_os("source").map(PathBuf::from).unwrap(),
             fields: matches.values_of("fields").map_or_else(Vec::new, |v| {
                 v.map(|s| FromStr::from_str(s).unwrap()).collect()
             }),

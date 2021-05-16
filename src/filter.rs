@@ -29,14 +29,14 @@ impl Filters {
     pub fn accept_process(&self, s: &OsStr) -> bool {
         self.process_filter
             .as_ref()
-            .map(|re| re.is_match(&s.to_bytes()))
+            .map(|re| re.is_match(&s.to_raw_bytes()))
             .unwrap_or(true)
     }
 
     pub fn accept_user(&self, s: &OsStr) -> bool {
         self.user_filter
             .as_ref()
-            .map(|re| re.is_match(&s.to_bytes()))
+            .map(|re| re.is_match(&s.to_raw_bytes()))
             .unwrap_or(true)
     }
 }
