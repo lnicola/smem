@@ -71,7 +71,8 @@ impl Options {
                     .long("columns")
                     .about("Columns to show")
                     .takes_value(true)
-                    .multiple(true)
+                    .multiple_values(true)
+                    .multiple_occurrences(true)
                     .validator(|s| super::fields::Field::from_str(s)),
             )
             .arg(
