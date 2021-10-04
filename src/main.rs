@@ -45,7 +45,7 @@ fn parse_uid(s: &str) -> uid_t {
 fn build_user_map(filters: &Filters) -> HashMap<uid_t, UserEntry> {
     unsafe { users::all_users() }
         .map(|u| {
-            let entry = if filters.accept_user(&u.name()) {
+            let entry = if filters.accept_user(u.name()) {
                 UserEntry::User(u.name().to_os_string())
             } else {
                 UserEntry::FilteredOut
@@ -199,7 +199,7 @@ fn print_processes(options: &Options) -> Result<(), Error> {
 
     if !options.no_header {
         for c in active_fields {
-            if c.kind(&options) == FieldKind::Text {
+            if c.kind(options) == FieldKind::Text {
                 print!("{:<10} ", c.name());
             } else {
                 print!("{:>10} ", c.name());
@@ -209,9 +209,9 @@ fn print_processes(options: &Options) -> Result<(), Error> {
     }
     let sort_field = options.sort_field.unwrap_or(Field::Rss);
     if options.reverse {
-        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, &options).reverse());
+        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, options).reverse());
     } else {
-        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, &options));
+        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, options));
     }
     let file_size_opts = FileSizeOpts {
         space: false,
@@ -221,7 +221,7 @@ fn print_processes(options: &Options) -> Result<(), Error> {
     for process in processes {
         for &c in active_fields {
             process
-                .format_field(io::stdout(), c, &options, &file_size_opts)
+                .format_field(io::stdout(), c, options, &file_size_opts)
                 .unwrap();
             print!(" ");
         }
@@ -233,9 +233,9 @@ fn print_processes(options: &Options) -> Result<(), Error> {
             "--------------------------------------------------------------------------------"
         );
         for &c in active_fields {
-            if c.kind(&options) == FieldKind::Size {
+            if c.kind(options) == FieldKind::Size {
                 totals
-                    .format_field(io::stdout(), c, &options, &file_size_opts)
+                    .format_field(io::stdout(), c, options, &file_size_opts)
                     .unwrap();
                 print!(" ");
             } else {
@@ -248,7 +248,7 @@ fn print_processes(options: &Options) -> Result<(), Error> {
 }
 
 fn run(options: &Options) -> Result<(), Error> {
-    print_processes(&options)
+    print_processes(options)
 }
 
 fn disable_sigpipe_handling() {

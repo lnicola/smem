@@ -36,10 +36,10 @@ impl ProcessInfo {
                     write!(writer, "{:10}", self.username.to_string_lossy())
                 }
             }
-            Field::Pss => self.sizes.pss.format_to(writer, &opts, &size_opts),
-            Field::Rss => self.sizes.rss.format_to(writer, &opts, &size_opts),
-            Field::Uss => self.sizes.uss.format_to(writer, &opts, &size_opts),
-            Field::Swap => self.sizes.swap.format_to(writer, &opts, &size_opts),
+            Field::Pss => self.sizes.pss.format_to(writer, opts, size_opts),
+            Field::Rss => self.sizes.rss.format_to(writer, opts, size_opts),
+            Field::Uss => self.sizes.uss.format_to(writer, opts, size_opts),
+            Field::Swap => self.sizes.swap.format_to(writer, opts, size_opts),
             Field::Cmdline => write!(writer, "{:10}", self.cmdline.to_string_lossy()),
         }
     }
@@ -120,10 +120,10 @@ impl ProcessSizes {
         size_opts: &FileSizeOpts,
     ) -> Result<()> {
         match field {
-            Field::Pss => self.pss.format_to(writer, &opts, &size_opts),
-            Field::Rss => self.rss.format_to(writer, &opts, &size_opts),
-            Field::Uss => self.uss.format_to(writer, &opts, &size_opts),
-            Field::Swap => self.swap.format_to(writer, &opts, &size_opts),
+            Field::Pss => self.pss.format_to(writer, opts, size_opts),
+            Field::Rss => self.rss.format_to(writer, opts, size_opts),
+            Field::Uss => self.uss.format_to(writer, opts, size_opts),
+            Field::Swap => self.swap.format_to(writer, opts, size_opts),
             _ => panic!("Field not supported for totals: {}", field.name()),
         }
     }
