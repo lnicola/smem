@@ -10,7 +10,7 @@ impl std::error::Error for Error {
         match self {
             Error::Io(e) => Some(e),
             Error::Encoding(e) => Some(e),
-            Error::Processing(_) => Some(self),
+            Error::Processing(_) => None,
         }
     }
 }
