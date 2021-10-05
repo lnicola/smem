@@ -65,8 +65,8 @@ fn get_process_uid(path: &Path) -> Result<uid_t, Error> {
         line.clear();
     }
     Err(Error::Processing(format!(
-        "Could not find process entry for path: `{:?}'",
-        path
+        "Could not find process UID entry for path: `{}'",
+        path.display()
     )))
 }
 
