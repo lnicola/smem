@@ -2,6 +2,7 @@ use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
 use libc::{self, pid_t, uid_t};
 use os_str_bytes::OsStringBytes;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use stats::Size;
 
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -13,7 +14,7 @@ use self::error::Error;
 use self::fields::{Field, FieldKind};
 use self::filter::Filters;
 use self::options::Options;
-use self::stats::{ProcessInfo, ProcessSizes, Size, User};
+use self::stats::{ProcessInfo, ProcessSizes, User};
 
 mod error;
 mod fields;
@@ -37,13 +38,6 @@ fn build_user_map(filters: &Filters) -> HashMap<uid_t, UserEntry> {
             (u.uid(), entry)
         })
         .collect()
-}
-
-fn parse_size(s: &str) -> usize {
-    let s = &s[..s.len() - 4];
-    let pos = s.rfind(' ').unwrap();
-    let s = &s[pos + 1..];
-    s.parse().unwrap_or_default()
 }
 
 fn parse_uid(s: &str) -> uid_t {
@@ -105,36 +99,24 @@ fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
 
 fn get_memory_info(path: &Path) -> Result<ProcessSizes, Error> {
     let mut reader = open_smaps(path)?;
+    let mut sizes: ProcessSizes = Default::default();
     let mut line = String::new();
-    let mut pss = 0;
-    let mut rss = 0;
-    let mut private_clean = 0;
-    let mut private_dirty = 0;
-    let mut swap = 0;
 
     while reader.read_line(&mut line).unwrap_or_default() > 0 {
         if line.starts_with("Pss:") {
-            pss += parse_size(&line);
+            sizes.pss += Size::from_smap_entry(&line)?;
         } else if line.starts_with("Rss:") {
-            rss += parse_size(&line);
-        } else if line.starts_with("Private_Clean:") {
-            private_clean += parse_size(&line);
-        } else if line.starts_with("Private_Dirty:") {
-            private_dirty += parse_size(&line);
+            sizes.rss += Size::from_smap_entry(&line)?;
+        } else if line.starts_with("Private_Clean:") || line.starts_with("Private_Dirty:") {
+            sizes.uss += Size::from_smap_entry(&line)?;
         } else if line.starts_with("Swap:") {
-            swap += parse_size(&line);
+            sizes.swap += Size::from_smap_entry(&line)?;
         }
 
         line.clear();
     }
 
-    let uss = private_clean + private_dirty;
-    Ok(ProcessSizes {
-        pss: Size(pss * 1024),
-        rss: Size(rss * 1024),
-        uss: Size(uss * 1024),
-        swap: Size(swap * 1024),
-    })
+    Ok(sizes)
 }
 
 fn get_process_info(
@@ -229,7 +211,7 @@ fn print_processes(options: &Options) -> Result<(), Error> {
         space: false,
         ..CONVENTIONAL
     };
-    let mut totals = ProcessSizes::new();
+    let mut totals: ProcessSizes = Default::default();
     for process in processes {
         for &c in active_fields {
             process
