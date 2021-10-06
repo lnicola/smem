@@ -81,7 +81,7 @@ pub struct Size(usize);
 // In bytes
 impl Size {
     pub fn from_smap_entry(s: &str) -> Result<Self, Error> {
-        assert!(&s[s.len() - 3..s.len() - 1] == "kB");
+        assert!(s.ends_with("kB"));
         let s = &s[..s.len() - 4];
         let pos = s.rfind(' ').ok_or(Error::ParseSize)?;
         let s = &s[pos + 1..];
