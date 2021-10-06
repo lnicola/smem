@@ -4,9 +4,11 @@ use libc::{pid_t, uid_t};
 
 use std::cmp::Ordering;
 use std::ffi::OsString;
-use std::io::{Result, Write};
+use std::io;
+use std::io::Write;
 use std::ops::{Add, AddAssign};
 
+use super::error::Error;
 use super::fields::Field;
 use super::options::Options;
 
@@ -36,7 +38,7 @@ impl ProcessInfo {
         field: Field,
         opts: &Options,
         size_opts: &FileSizeOpts,
-    ) -> Result<()> {
+    ) -> io::Result<()> {
         match field {
             Field::Pid => write!(writer, "{:10}", self.pid),
             Field::User => {
@@ -74,20 +76,37 @@ impl ProcessInfo {
 }
 
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
-pub struct Size(pub usize);
+pub struct Size(usize);
 
+// In bytes
 impl Size {
+    pub fn from_smap_entry(s: &str) -> Result<Self, Error> {
+        assert!(&s[s.len() - 3..s.len() - 1] == "kB");
+        let s = &s[..s.len() - 4];
+        let pos = s.rfind(' ').ok_or(Error::ParseSize)?;
+        let s = &s[pos + 1..];
+        s.parse()
+            .map(|n: usize| Size(n * 1024))
+            .map_err(|_| Error::ParseSize)
+    }
+
     pub fn format_to<W: Write>(
         &self,
         mut writer: W,
         opts: &Options,
         size_opts: &FileSizeOpts,
-    ) -> Result<()> {
+    ) -> io::Result<()> {
         if opts.abbreviate {
             write!(writer, "{:>10}", self.0.file_size(&size_opts).unwrap())
         } else {
             write!(writer, "{:10}", self.0)
         }
+    }
+}
+
+impl Default for Size {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
@@ -113,28 +132,30 @@ impl AddAssign for Size {
 }
 
 impl ProcessSizes {
-    pub fn new() -> Self {
-        ProcessSizes {
-            rss: Size(0),
-            pss: Size(0),
-            uss: Size(0),
-            swap: Size(0),
-        }
-    }
-
     pub fn format_field<W: Write>(
         &self,
         writer: W,
         field: Field,
         opts: &Options,
         size_opts: &FileSizeOpts,
-    ) -> Result<()> {
+    ) -> io::Result<()> {
         match field {
             Field::Pss => self.pss.format_to(writer, opts, size_opts),
             Field::Rss => self.rss.format_to(writer, opts, size_opts),
             Field::Uss => self.uss.format_to(writer, opts, size_opts),
             Field::Swap => self.swap.format_to(writer, opts, size_opts),
             _ => panic!("Field not supported for totals: {}", field.name()),
+        }
+    }
+}
+
+impl Default for ProcessSizes {
+    fn default() -> Self {
+        Self {
+            rss: Default::default(),
+            pss: Default::default(),
+            uss: Default::default(),
+            swap: Default::default(),
         }
     }
 }

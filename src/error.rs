@@ -3,6 +3,7 @@ pub enum Error {
     Io(std::io::Error),
     Encoding(os_str_bytes::EncodingError),
     Processing(String),
+    ParseSize,
 }
 
 impl std::error::Error for Error {
@@ -11,6 +12,7 @@ impl std::error::Error for Error {
             Error::Io(e) => Some(e),
             Error::Encoding(e) => Some(e),
             Error::Processing(_) => None,
+            Error::ParseSize => None,
         }
     }
 }
@@ -21,6 +23,7 @@ impl std::fmt::Display for Error {
             Error::Io(e) => e.fmt(f),
             Error::Encoding(e) => e.fmt(f),
             Error::Processing(_) => self.fmt(f),
+            Error::ParseSize => self.fmt(f),
         }
     }
 }
