@@ -1,37 +1,35 @@
 use humansize::file_size_opts::FileSizeOpts;
 use humansize::FileSize;
 use libc::{pid_t, uid_t};
+use users::User;
 
 use std::cmp::Ordering;
 use std::ffi::OsString;
 use std::io;
 use std::io::Write;
 use std::ops::{Add, AddAssign};
+use std::path::PathBuf;
 
 use super::error::Error;
 use super::fields::Field;
 use super::options::Options;
 
-pub struct User {
-    pub uid: uid_t,
-    pub name: OsString,
-}
-
-impl User {
-    pub fn new(uid: uid_t, name: OsString) -> Self {
-        Self { uid, name }
-    }
-}
-
-pub struct ProcessInfo {
+#[derive(Clone)]
+pub struct Process {
     pub pid: pid_t,
-    pub user: User,
+    pub uid: uid_t,
     pub command: OsString,
     pub cmdline: OsString,
+    pub procfs_path: PathBuf,
+}
+
+pub struct ProcessDetails {
+    pub process: Process,
+    pub user: User,
     pub sizes: ProcessSizes,
 }
 
-impl ProcessInfo {
+impl ProcessDetails {
     pub fn format_field<W: Write>(
         &self,
         mut writer: W,
@@ -40,37 +38,37 @@ impl ProcessInfo {
         size_opts: &FileSizeOpts,
     ) -> io::Result<()> {
         match field {
-            Field::Pid => write!(writer, "{:10}", self.pid),
+            Field::Pid => write!(writer, "{:10}", self.process.pid),
             Field::User => {
                 if opts.numeric {
-                    write!(writer, "{:10}", self.user.uid)
+                    write!(writer, "{:10}", self.user.uid())
                 } else {
-                    write!(writer, "{:10}", self.user.name.to_string_lossy())
+                    write!(writer, "{:10}", self.user.name().to_string_lossy())
                 }
             }
             Field::Pss => self.sizes.pss.format_to(writer, opts, size_opts),
             Field::Rss => self.sizes.rss.format_to(writer, opts, size_opts),
             Field::Uss => self.sizes.uss.format_to(writer, opts, size_opts),
             Field::Swap => self.sizes.swap.format_to(writer, opts, size_opts),
-            Field::Cmdline => write!(writer, "{:10}", self.cmdline.to_string_lossy()),
+            Field::Cmdline => write!(writer, "{:10}", self.process.cmdline.to_string_lossy()),
         }
     }
 
     pub fn cmp_by(&self, field: Field, other: &Self, opts: &Options) -> Ordering {
         match field {
-            Field::Pid => self.pid.cmp(&other.pid),
+            Field::Pid => self.process.pid.cmp(&other.process.pid),
             Field::User => {
                 if opts.numeric {
-                    self.user.uid.cmp(&other.user.uid)
+                    self.user.uid().cmp(&other.user.uid())
                 } else {
-                    self.user.name.cmp(&other.user.name)
+                    self.user.name().cmp(other.user.name())
                 }
             }
             Field::Pss => self.sizes.pss.cmp(&other.sizes.pss),
             Field::Rss => self.sizes.rss.cmp(&other.sizes.rss),
             Field::Uss => self.sizes.uss.cmp(&other.sizes.uss),
             Field::Swap => self.sizes.swap.cmp(&other.sizes.swap),
-            Field::Cmdline => self.cmdline.cmp(&other.cmdline),
+            Field::Cmdline => self.process.cmdline.cmp(&other.process.cmdline),
         }
     }
 }
@@ -81,7 +79,7 @@ pub struct Size(usize);
 // In bytes
 impl Size {
     pub fn from_smap_entry(s: &str) -> Result<Self, Error> {
-        assert!(s.ends_with("kB"));
+        assert!(s.ends_with("kB\n"));
         let s = &s[..s.len() - 4];
         let pos = s.rfind(' ').ok_or(Error::ParseSize)?;
         let s = &s[pos + 1..];

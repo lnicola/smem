@@ -2,7 +2,8 @@ use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
 use libc::{self, pid_t, uid_t};
 use os_str_bytes::OsStringBytes;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use stats::Size;
+use stats::{Process, Size};
+use users::User;
 
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -12,9 +13,8 @@ use std::path::Path;
 
 use self::error::Error;
 use self::fields::{Field, FieldKind};
-use self::filter::Filters;
 use self::options::Options;
-use self::stats::{ProcessInfo, ProcessSizes, User};
+use self::stats::{ProcessDetails, ProcessSizes};
 
 mod error;
 mod fields;
@@ -22,21 +22,9 @@ mod filter;
 mod options;
 mod stats;
 
-enum UserEntry {
-    User(OsString),
-    FilteredOut,
-}
-
-fn build_user_map(filters: &Filters) -> HashMap<uid_t, UserEntry> {
+fn all_users() -> HashMap<uid_t, User> {
     unsafe { users::all_users() }
-        .map(|u| {
-            let entry = if filters.accept_user(u.name()) {
-                UserEntry::User(u.name().to_os_string())
-            } else {
-                UserEntry::FilteredOut
-            };
-            (u.uid(), entry)
-        })
+        .map(|u| (u.uid(), u))
         .collect()
 }
 
@@ -64,10 +52,11 @@ fn get_process_uid(path: &Path) -> Result<uid_t, Error> {
     )))
 }
 
-fn get_pid(path: &Path) -> Option<pid_t> {
+fn get_process_id(path: &Path) -> Result<pid_t, Error> {
     path.file_name()
         .and_then(|dir_name| dir_name.to_str())
         .and_then(|pid| pid.parse().ok())
+        .ok_or_else(|| Error::Processing("Failed to get PID".to_owned()))
 }
 
 fn get_process_command(path: &Path) -> Result<OsString, Error> {
@@ -119,40 +108,47 @@ fn get_memory_info(path: &Path) -> Result<ProcessSizes, Error> {
     Ok(sizes)
 }
 
-fn get_process_info(
-    path: &Path,
-    filters: &Filters,
-    users: &HashMap<uid_t, UserEntry>,
-) -> Result<Option<ProcessInfo>, Error> {
-    let pid = match get_pid(path) {
-        Some(pid) => pid,
-        None => return Ok(None),
-    };
-    let uid = get_process_uid(path)?;
-    let username = match users.get(&uid) {
-        Some(UserEntry::User(name)) => name.clone(),
-        Some(UserEntry::FilteredOut) => return Ok(None),
-        None => OsString::new(),
-    };
-    let command = get_process_command(path)?;
-    let cmdline = get_cmdline(path)?;
-    if cmdline.is_empty() || !filters.accept_process(&command) && !filters.accept_process(&cmdline)
-    {
-        return Ok(None);
-    }
-
-    let sizes = get_memory_info(path)?;
-    let statistics = ProcessInfo {
-        pid,
-        user: User::new(uid, username),
-        command,
-        cmdline,
-        sizes,
-    };
-    Ok(Some(statistics))
+fn get_process(path: &Path) -> Result<Process, Error> {
+    Ok(Process {
+        pid: get_process_id(path)?,
+        uid: get_process_uid(path)?,
+        command: get_process_command(path)?,
+        cmdline: get_cmdline(path)?,
+        procfs_path: path.to_path_buf(),
+    })
 }
 
-fn print_processes(options: &Options) -> Result<(), Error> {
+fn get_process_details(
+    process: &Process,
+    users: &HashMap<uid_t, User>,
+) -> Result<ProcessDetails, Error> {
+    let user = users
+        .get(&process.uid)
+        .ok_or_else(|| Error::Processing("Could not get user name".to_owned()))?;
+    let sizes = get_memory_info(&process.procfs_path)?;
+    let statistics = ProcessDetails {
+        process: process.clone(),
+        user: user.clone(),
+        sizes,
+    };
+    Ok(statistics)
+}
+
+fn all_processes(path: &Path) -> Vec<Process> {
+    fs::read_dir(path)
+        .unwrap_or_else(|e| panic!("can't read {}: {}", path.display(), e))
+        .filter_map(|e| e.ok())
+        .collect::<Vec<_>>()
+        .par_iter()
+        .map(|e| match e.metadata() {
+            Ok(m) if m.is_dir() => get_process(&e.path()).ok(),
+            _ => None,
+        })
+        .flatten()
+        .collect::<Vec<_>>()
+}
+
+fn print_processes(process_details: Vec<ProcessDetails>, options: &Options) -> Result<(), Error> {
     let default_fields = vec![
         Field::Pid,
         Field::User,
@@ -169,28 +165,6 @@ fn print_processes(options: &Options) -> Result<(), Error> {
         &options.fields
     };
 
-    let mut filters = filter::Filters::new();
-    if let Some(ref process) = options.process_filter {
-        filters.process(process);
-    }
-    if let Some(ref user) = options.user_filter {
-        filters.user(user);
-    }
-
-    let users = build_user_map(&filters);
-    let entries = fs::read_dir(&options.source)
-        .unwrap_or_else(|e| panic!("can't read {}: {}", options.source.display(), e))
-        .filter_map(|e| e.ok())
-        .collect::<Vec<_>>();
-    let mut processes = entries
-        .par_iter()
-        .filter_map(|e| match e.metadata() {
-            Ok(m) if m.is_dir() => get_process_info(&e.path(), &filters, &users).ok(),
-            _ => None,
-        })
-        .flatten()
-        .collect::<Vec<_>>();
-
     if !options.no_header {
         for c in active_fields {
             if c.kind(options) == FieldKind::Text {
@@ -201,26 +175,20 @@ fn print_processes(options: &Options) -> Result<(), Error> {
         }
         println!();
     }
-    let sort_field = options.sort_field.unwrap_or(Field::Rss);
-    if options.reverse {
-        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, options).reverse());
-    } else {
-        processes.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, options));
-    }
     let file_size_opts = FileSizeOpts {
         space: false,
         ..CONVENTIONAL
     };
     let mut totals: ProcessSizes = Default::default();
-    for process in processes {
+    for details in process_details {
         for &c in active_fields {
-            process
+            details
                 .format_field(io::stdout(), c, options, &file_size_opts)
                 .unwrap();
             print!(" ");
         }
         println!();
-        totals += process.sizes;
+        totals += details.sizes;
     }
     if options.totals {
         println!(
@@ -242,7 +210,32 @@ fn print_processes(options: &Options) -> Result<(), Error> {
 }
 
 fn run(options: &Options) -> Result<(), Error> {
-    print_processes(options)
+    let users = all_users();
+    let processes = all_processes(&options.source);
+    let mut filters = filter::Filters::new();
+    if let Some(ref process) = options.process_filter {
+        filters.process(process);
+    }
+    if let Some(ref user) = options.user_filter {
+        filters.user(user);
+    }
+
+    let mut process_details = processes
+        .par_iter()
+        .filter(|p| {
+            !p.cmdline.is_empty()
+                && (filters.accept_process(&p.command) || filters.accept_process(&p.cmdline))
+        })
+        .map(|p| get_process_details(p, &users).unwrap())
+        .filter(|d| filters.accept_user(d.user.name()))
+        .collect::<Vec<_>>();
+    let sort_field = options.sort_field.unwrap_or(Field::Rss);
+    if options.reverse {
+        process_details.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, options).reverse());
+    } else {
+        process_details.sort_by(|p1, p2| p1.cmp_by(sort_field, p2, options));
+    }
+    print_processes(process_details, options)
 }
 
 fn disable_sigpipe_handling() {
