@@ -37,7 +37,7 @@ checksum = "feff3878564edb93745d58cf63e17b63f24142506e7a20c87a5521ed7bfb1d63"
 dependencies = [
  "bitflags",
  "indexmap",
- "os_str_bytes",
+ "os_str_bytes 4.2.0",
  "textwrap",
 ]
 
@@ -130,9 +130,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.107"
+version = "0.2.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbe5e23404da5b4f555ef85ebed98fb4083e55a00c317800bc2a50ede9f3d219"
+checksum = "8521a1b57e76b1ec69af7599e75e38e7b7fad6610f037db8c79b127201b5d119"
 
 [[package]]
 name = "memchr"
@@ -164,6 +164,15 @@ name = "os_str_bytes"
 version = "4.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "addaa943333a514159c80c97ff4a93306530d965d27e139188283cd13e06a799"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "os_str_bytes"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eec548a9ec896e20392939de0f32aabcdd8507358840f5ee4867792f3afcf494"
 dependencies = [
  "memchr",
 ]
@@ -223,7 +232,7 @@ dependencies = [
  "clap",
  "humansize",
  "libc",
- "os_str_bytes",
+ "os_str_bytes 5.0.0",
  "rayon",
  "regex",
  "users",
