@@ -73,7 +73,7 @@ impl ProcessDetails {
     }
 }
 
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Size(usize);
 
 // In bytes
@@ -102,12 +102,7 @@ impl Size {
     }
 }
 
-impl Default for Size {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
+#[derive(Default)]
 pub struct ProcessSizes {
     pub rss: Size,
     pub pss: Size,
@@ -143,17 +138,6 @@ impl ProcessSizes {
             Field::Uss => self.uss.format_to(writer, opts, size_opts),
             Field::Swap => self.swap.format_to(writer, opts, size_opts),
             _ => panic!("Field not supported for totals: {}", field.name()),
-        }
-    }
-}
-
-impl Default for ProcessSizes {
-    fn default() -> Self {
-        Self {
-            rss: Default::default(),
-            pss: Default::default(),
-            uss: Default::default(),
-            swap: Default::default(),
         }
     }
 }
