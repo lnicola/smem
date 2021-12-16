@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "3.0.0-beta.4", default-features = false, features = [
+clap = { version = "3.0.0-beta.6", default-features = false, features = [
     "std",
 ] }
 humansize = "1.1"
 libc = "0.2"
-os_str_bytes = "5.0"
+os_str_bytes = "6.0"
 rayon = "1.5"
 regex = { version = "1.5", default-features = false, features = [
     "std",

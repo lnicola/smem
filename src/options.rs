@@ -23,45 +23,45 @@ impl Options {
                 Arg::new("no-header")
                     .short('H')
                     .long("no-header")
-                    .about("Disable the header line"),
+                    .help("Disable the header line"),
             )
             .arg(
                 Arg::new("process-filter")
                     .short('P')
                     .long("processfilter")
-                    .about("Process filter")
+                    .help("Process filter")
                     .takes_value(true),
             )
             .arg(
                 Arg::new("user-filter")
                     .short('U')
                     .long("userfilter")
-                    .about("User filter")
+                    .help("User filter")
                     .takes_value(true),
             )
             .arg(
                 Arg::new("numeric")
                     .short('n')
                     .long("numeric")
-                    .about("Numeric output"),
+                    .help("Numeric output"),
             )
             .arg(
                 Arg::new("reverse")
                     .short('r')
                     .long("reverse")
-                    .about("Reverse sort"),
+                    .help("Reverse sort"),
             )
             .arg(
                 Arg::new("abbreviate")
                     .short('k')
                     .long("abbreviate")
-                    .about("Show human-readable sizes"),
+                    .help("Show human-readable sizes"),
             )
             .arg(
                 Arg::new("source")
                     .short('S')
                     .long("source")
-                    .about("The path to /proc (the data source)")
+                    .help("The path to /proc (the data source)")
                     .takes_value(true)
                     .default_value("/proc"),
             )
@@ -69,7 +69,7 @@ impl Options {
                 Arg::new("fields")
                     .short('c')
                     .long("columns")
-                    .about("Columns to show")
+                    .help("Columns to show")
                     .takes_value(true)
                     .multiple_values(true)
                     .multiple_occurrences(true)
@@ -79,7 +79,7 @@ impl Options {
                 Arg::new("sort-field")
                     .short('s')
                     .long("sort")
-                    .about("Column to sort on")
+                    .help("Column to sort on")
                     .takes_value(true)
                     .validator(|s| super::fields::Field::from_str(s)),
             )
@@ -87,7 +87,7 @@ impl Options {
                 Arg::new("totals")
                     .short('t')
                     .long("totals")
-                    .about("Show totals"),
+                    .help("Show totals"),
             )
             .get_matches();
         Options {
