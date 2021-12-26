@@ -226,7 +226,7 @@ fn run(options: &Options) -> Result<(), Error> {
             !p.cmdline.is_empty()
                 && (filters.accept_process(&p.command) || filters.accept_process(&p.cmdline))
         })
-        .map(|p| get_process_details(p, &users).unwrap())
+        .filter_map(|p| get_process_details(p, &users).ok())
         .filter(|d| filters.accept_user(d.user.name()))
         .collect::<Vec<_>>();
     let sort_field = options.sort_field.unwrap_or(Field::Rss);
