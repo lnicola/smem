@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -17,7 +17,7 @@ pub struct Options {
 
 impl Options {
     pub fn from_args() -> Options {
-        let matches = App::new(env!("CARGO_PKG_NAME"))
+        let matches = Command::new(env!("CARGO_PKG_NAME"))
             .about(env!("CARGO_PKG_DESCRIPTION"))
             .arg(
                 Arg::new("no-header")
