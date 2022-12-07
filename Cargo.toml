@@ -11,7 +11,7 @@ humansize = "1.1"
 libc = "0.2"
 os_str_bytes = "6.0"
 rayon = "1.6"
-regex = { version = "1.5", default-features = false, features = [
+regex = { version = "1.7", default-features = false, features = [
     "std",
     "perf",
 ] }
