@@ -95,7 +95,7 @@ impl Size {
         size_opts: &FileSizeOpts,
     ) -> io::Result<()> {
         if opts.abbreviate {
-            write!(writer, "{:>10}", self.0.file_size(&size_opts).unwrap())
+            write!(writer, "{:>10}", self.0.file_size(size_opts).unwrap())
         } else {
             write!(writer, "{:10}", self.0)
         }

@@ -39,7 +39,7 @@ fn parse_uid(s: &str) -> uid_t {
 
 fn get_process_uid(path: &Path) -> Result<uid_t, Error> {
     let mut line = String::new();
-    let mut reader = BufReader::new(File::open(&path.join("status"))?);
+    let mut reader = BufReader::new(File::open(path.join("status"))?);
     while reader.read_line(&mut line).unwrap_or_default() > 0 {
         if line.starts_with("Uid:") {
             return Ok(parse_uid(&line));
@@ -60,13 +60,13 @@ fn get_process_id(path: &Path) -> Result<pid_t, Error> {
 }
 
 fn get_process_command(path: &Path) -> Result<OsString, Error> {
-    let mut command = fs::read(&path.join("comm"))?;
+    let mut command = fs::read(path.join("comm"))?;
     command.pop();
     Ok(OsString::from_raw_vec(command)?)
 }
 
 fn get_cmdline(path: &Path) -> Result<OsString, Error> {
-    let mut cmdline = fs::read(&path.join("cmdline"))?;
+    let mut cmdline = fs::read(path.join("cmdline"))?;
     for c in &mut cmdline {
         if *c == b'\0' {
             *c = b' ';
@@ -79,9 +79,9 @@ fn get_cmdline(path: &Path) -> Result<OsString, Error> {
 }
 
 fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
-    let file = match File::open(&path.join("smaps_rollup")) {
+    let file = match File::open(path.join("smaps_rollup")) {
         Ok(file) => file,
-        Err(_) => File::open(&path.join("smaps"))?,
+        Err(_) => File::open(path.join("smaps"))?,
     };
     Ok(BufReader::new(file))
 }
