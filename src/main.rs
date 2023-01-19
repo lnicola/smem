@@ -1,6 +1,5 @@
 use humansize::file_size_opts::{FileSizeOpts, CONVENTIONAL};
 use libc::{self, pid_t, uid_t};
-use os_str_bytes::OsStringBytes;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use stats::{Process, Size};
 use users::User;
@@ -9,6 +8,7 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
+use std::os::unix::prelude::OsStringExt;
 use std::path::Path;
 
 use self::error::Error;
@@ -62,7 +62,7 @@ fn get_process_id(path: &Path) -> Result<pid_t, Error> {
 fn get_process_command(path: &Path) -> Result<OsString, Error> {
     let mut command = fs::read(path.join("comm"))?;
     command.pop();
-    Ok(OsString::from_raw_vec(command)?)
+    Ok(OsString::from_vec(command))
 }
 
 fn get_cmdline(path: &Path) -> Result<OsString, Error> {
@@ -75,7 +75,7 @@ fn get_cmdline(path: &Path) -> Result<OsString, Error> {
     if !cmdline.is_empty() {
         cmdline.pop();
     }
-    Ok(OsString::from_raw_vec(cmdline)?)
+    Ok(OsString::from_vec(cmdline))
 }
 
 fn open_smaps(path: &Path) -> io::Result<BufReader<File>> {
