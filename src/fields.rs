@@ -64,7 +64,7 @@ impl FromStr for Field {
             "uss" => Ok(Field::Uss),
             "swap" => Ok(Field::Swap),
             "cmdline" => Ok(Field::Cmdline),
-            _ => Err(format!("Unknown field: {}", s)),
+            _ => Err(format!("Unknown field: {s}")),
         }
     }
 }

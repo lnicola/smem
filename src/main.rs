@@ -251,7 +251,7 @@ fn main() {
     match run(&options) {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
         }
     }
 }
