@@ -63,6 +63,7 @@ impl Options {
                     .long("source")
                     .help("The path to /proc (the data source)")
                     .takes_value(true)
+                    .allow_invalid_utf8(true)
                     .default_value("/proc"),
             )
             .arg(
